@@ -31,13 +31,33 @@ A synthetic banking and investment app for teaching Aiden and Skylar money manag
 - **Use explicit table aliases** in all SQL — `k.id` not `id` (bug recurred twice in Hanzi Dojo)
 - **Query actual data before assuming scope** — don't trust manual counts
 - **Documentation structure**: CLAUDE.md + SESSION_LOG.md + REPO_STRUCTURE.md + docs/solutions/
-- **Manual QA on real mobile** for kid-facing visual views (Playwright misses state/visual bugs)
+- **QA with Playwright MCP + Agent Browser** for frontend verification (see QA Strategy below)
 - **Parallel PRs** for independent features
 
 ### Don't
 - **Don't over-engineer the schema** — Hanzi Dojo has 41 migrations because it's building a character DB from scratch. This app's "content" (stock prices) comes from an API. Target: <10 migrations total.
 - **Don't modify RPCs without reading the entire function** — the alias pattern is always intentional
 - **Don't skip RPC testing** — data queries can pass while RPC silently returns wrong results
+
+## QA Strategy
+
+### Tooling (Updated from Hanzi Dojo Lessons)
+
+Hanzi Dojo (Sessions 1-25) relied on Playwright MCP alone, which missed visual/state bugs.
+This project uses two complementary tools:
+
+| Tool | What It's Good At | When to Use |
+|------|-------------------|-------------|
+| **Playwright MCP** | Accessibility snapshots, element presence, functional flows, form submission | Unit-level UI verification, navigation, data display correctness |
+| **Agent Browser** (Vercel) | Visual rendering, authenticated views, real browser behavior, screenshot comparison | Visual QA, mobile viewport testing, design fidelity, end-to-end flows |
+
+### QA Protocol
+1. **Backend/RPC**: Test in Supabase SQL Editor first (before any frontend wiring)
+2. **Functional UI**: Playwright MCP — does the right data show up? Do forms work?
+3. **Visual UI**: Agent Browser — does it look right? Mobile layout correct? Charts render?
+4. **Kid experience**: Manual (show Aiden) — does it feel fun? Is it confusing?
+
+**Note:** Agent Browser requires a dev session running in terminal (`npx agent-browser`).
 
 ## What NOT To Do
 - Don't over-engineer the schema
