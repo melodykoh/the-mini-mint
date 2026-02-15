@@ -22,9 +22,24 @@ A synthetic banking and investment app for teaching Aiden and Skylar money manag
 
 ## Tech Stack
 - React + Vite + TypeScript + Tailwind CSS (matches Hanzi Dojo for consistency)
-- Supabase (Postgres + auth + API)
+- Supabase (Postgres + auth + API) — **shared with Lego App project** (see below)
 - Vercel (deployment)
 - Stock price API: **Twelve Data** (free tier, 800 calls/day, batch endpoint). Fallback: Polygon.io
+
+## Shared Supabase Project (IMPORTANT)
+
+**FCL shares the Lego App's Supabase project.** This is documented in both repos.
+
+**Why:** Supabase free tier allows only 2 projects (Hanzi Dojo + Lego App). Hanzi Dojo was ruled out: `kids` table name conflict, signups must stay enabled (other families use it), 47+ active migrations create collision risk. Lego App has 2 tables (`creations`, `photos`), zero conflicts, and benefits from FCL keeping the project active.
+
+**Implications for FCL development:**
+- Supabase credentials (URL, anon key, service role key) are the same as Lego App's
+- Auth users are shared — Melody's account works for both apps
+- **Never drop or modify** Lego App tables (`creations`, `photos`)
+- Migrations must be applied carefully — this project has other tables
+- Signups are disabled at project level (P4b prerequisite)
+
+**Lego App repo:** `/Users/melodykoh/Documents/Claude Projects/Personal/Aiden's Lego Site/`
 
 ## Lessons Adopted from Hanzi Dojo
 

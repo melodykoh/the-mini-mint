@@ -173,24 +173,26 @@ Financial data flows through derived chains. See `LEARNINGS_APPLIED.md` Section 
 
 ## Prerequisites (Manual, Before Ralph Loop Starts)
 
-These must be done by Melody before autonomous execution:
+These must be done by Melody before autonomous execution.
 
-- [ ] **P1: Create Supabase project** — new project in Supabase dashboard
-- [ ] **P2: Get Supabase credentials** — project URL + anon key + service role key
+> **Supabase decision (Feb 2026):** FCL shares the **Lego App's Supabase project** (free tier allows only 2 projects; Hanzi Dojo was ruled out due to `kids` table name conflict, enabled signups, and 47+ active migrations). Zero table name conflicts. FCL's regular usage prevents Lego App's inactivity archival warnings. Decision documented in both repos' CLAUDE.md files.
+
+- [ ] **P1:** ~~Create Supabase project~~ → **Use Lego App's existing Supabase project** (already created)
+- [ ] **P2: Get Supabase credentials** — copy from Lego App's env: project URL + anon key + service role key
 - [ ] **P3: Get Twelve Data API key** — free registration at twelvedata.com
-- [ ] **P4: Create two admin users** in Supabase Auth dashboard (email + password for Melody and husband)
-- [ ] **P4b: Disable signups** — Supabase Dashboard > Authentication > Settings > toggle OFF "Enable sign up" *(CRITICAL — prevents unauthorized account creation)*
+- [ ] **P4: Create admin user for husband** — Supabase Auth dashboard (email + password). Melody's account already exists from Lego App.
+- [ ] **P4b: Disable signups** — Supabase Dashboard > Authentication > Settings > toggle OFF "Enable sign up" *(safe — only Melody uses Lego App; no public signups needed)*
 - [ ] **P5: Store secrets** — add to `.env.local` in repo root:
   ```
-  VITE_SUPABASE_URL=...
-  VITE_SUPABASE_ANON_KEY=...
+  VITE_SUPABASE_URL=...          # Same as Lego App
+  VITE_SUPABASE_ANON_KEY=...     # Same as Lego App
   # DANGER: NEVER prefix with VITE_ — this key bypasses all RLS
-  SUPABASE_SERVICE_ROLE_KEY=...
-  TWELVE_DATA_API_KEY=...
+  SUPABASE_SERVICE_ROLE_KEY=...  # Same as Lego App
+  TWELVE_DATA_API_KEY=...        # New — from P3
   ```
 - [ ] **P6: Store test credentials** — add to `.env.test.local` (gitignored):
   ```
-  TEST_ADMIN_EMAIL=...
+  TEST_ADMIN_EMAIL=...           # Melody's existing Supabase login
   TEST_ADMIN_PASSWORD=...
   ```
 
