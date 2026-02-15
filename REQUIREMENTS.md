@@ -23,11 +23,14 @@ Kids do not have their own devices. Parent shows them their "portfolio" on paren
 | Birthday / holiday gifts | Small amounts | Parent manual entry |
 | Grandma's seed capital | ~$3,000 per kid (given years ago, has grown) | One-time seed at current estimated value |
 
-### Hanzi Dojo Points Tracking
-- Parent enters current Hanzi Dojo point total
-- App converts at 100 pts = $10
-- Tracks spend-down against that converted balance
+### Hanzi Dojo Points — "High Water Mark" Tracking
+- Parent enters the **current total** point balance from Hanzi Dojo (e.g., 1,100)
+- App stores the last recorded total (e.g., 1,000)
+- App computes delta: 1,100 - 1,000 = 100 new points = $10
+- $10 is auto-credited to the kid's **cash balance** as a deposit
+- Conversion rate: 100 points = $10
 - No direct API integration with Hanzi Dojo needed
+- This eliminates mental math — parent just types the number they see on the Hanzi Dojo dashboard
 
 ## The Three Investment Products
 
@@ -39,19 +42,21 @@ Kids do not have their own devices. Parent shows them their "portfolio" on paren
 
 ### 2. Certificate of Deposit (CD) — "Locked Vault"
 - **Liquidity:** Locked for chosen term
-- **Terms:** 1 month / 3 months / 6 months (kid-appropriate durations)
-- **Yield:** Higher than MMF, set by parent per term length
+- **Terms:** 3 months / 6 months / 12 months
+- **Yield:** Higher than MMF, set by parent per term length (longer = higher)
 - **Early withdrawal:** Penalty (lose last month's interest — simple, memorable)
 - **Maturity:** Funds return to cash balance; kid decides where to reinvest
 - **Teaching:** "Lock it up longer = earn more. But you can't touch it."
 
-### 3. Stock Picks — "My Companies"
+### 3. Stock / ETF Picks — "My Investments"
 - **Mechanic:** Virtual fractional shares
-- **Purchase:** Kid picks a stock, parent approves, dollars convert to virtual shares at current price
+- **Eligible securities:** Individual stocks (NVDA, AAPL) AND ETFs (VTI, VWO, sector ETFs)
+- **ADRs:** Supported (e.g., TSMC trades as TSM on NYSE)
+- **Purchase:** Kid picks a stock/ETF, parent approves, dollars convert to virtual shares at current price
 - **Pricing:** Daily automated updates via stock price API
 - **Sell:** Parent-approved, at current market price (gain or loss realized)
-- **Limit:** TBD — suggest 3-5 stocks per kid initially
-- **Teaching:** Volatility, company valuation, concentration risk, diversification
+- **Limit:** 3-5 positions per kid initially
+- **Teaching:** Volatility, company valuation, concentration risk, diversification, sector exposure, index vs. single-stock tradeoff
 
 ## Money Flow
 
@@ -98,6 +103,29 @@ Earnings / Gifts / Seed Capital
 2. **Performance Chart** — Simple line chart showing total portfolio value over time
 3. **My Stocks** — Individual holdings with price movement (green/red arrows)
 
+## Investment Simulator ("What Would My Money Become?")
+
+Before committing money to a product, kids can preview projected growth:
+
+```
+┌─────────────────────────────────────────────┐
+│  What would $50 become?                     │
+│                                             │
+│  💰 Cash (mattress):     $50.00  (+$0)      │
+│  🟢 MMF (4.2% APY):     $52.10  (+$2.10)   │
+│  🔒 6-month CD (4.8%):  $51.20  (+$1.20)   │
+│  🔒 12-month CD (5.2%): $52.60  (+$2.60)   │
+│                                             │
+│  📈 Stocks: "Nobody knows — that's risk!"  │
+└─────────────────────────────────────────────┘
+```
+
+- Shows all available products side by side for a given dollar amount
+- Uses current parent-set rates
+- Makes the liquidity/yield tradeoff tangible BEFORE commitment
+- Stocks intentionally show "unknown" — reinforces that equity = uncertainty
+- This is a calculator, not a guarantee
+
 ## Teaching Moments (Design Goals)
 
 | Concept | How the App Teaches It |
@@ -131,14 +159,21 @@ Earnings / Gifts / Seed Capital
 - Hanzi Dojo API integration
 - Allowance automation / recurring deposits
 
+## Resolved Decisions
+
+- [x] **Cash balance earns nothing ($0)** — incentivizes kids to actively invest; mirrors real checking account behavior
+- [x] **3-5 positions per kid** — includes individual stocks AND ETFs/index funds
+- [x] **CD terms: 3 / 6 / 12 months** — 12 months is fine for older kid
+- [x] **Grandma seed capital: seed at current estimated value, go forward** — no historical reconstruction
+- [x] **Hanzi Dojo: high water mark approach** — enter current total, app computes delta
+- [x] **ETFs and ADRs are valid picks** — VTI, sector ETFs, TSM (TSMC ADR) all supported
+- [x] **Investment simulator included** — "What would $50 become?" comparison tool
+
 ## Open Questions
 
-- [ ] Exact grandma seed amount per kid and current estimated value
-- [ ] How many stocks per kid? (Suggest 3-5 to start)
-- [ ] CD term options — are 1/3/6 months right?
-- [ ] Does uninvested cash earn anything, or only MMF does? (Suggest: cash = 0%, incentivizes allocating)
-- [ ] Stock price API choice (free tier options: Yahoo Finance, Alpha Vantage, Polygon.io)
-- [ ] Tech stack confirmation
+- [ ] Exact grandma seed amount per kid and current estimated value (Melody to check)
+- [ ] Stock price API choice (free tier options: Yahoo Finance, Alpha Vantage, Polygon.io, Finnhub)
+- [ ] Tech stack confirmation (leaning Next.js + Supabase)
 
 ## Proposed Data Model (Draft)
 
@@ -169,7 +204,7 @@ Earnings / Gifts / Seed Capital
 | kid_id | uuid | FK → kids |
 | principal | decimal | Amount locked |
 | apy | decimal | Rate at time of creation |
-| term_months | int | 1, 3, or 6 |
+| term_months | int | 3, 6, or 12 |
 | start_date | date | |
 | maturity_date | date | Computed |
 | status | enum | active, matured, broken |
@@ -189,6 +224,19 @@ Earnings / Gifts / Seed Capital
 | ticker | text | PK (composite) |
 | date | date | PK (composite) |
 | close_price | decimal | End-of-day price |
+
+### hanzi_dojo_snapshots
+| Column | Type | Notes |
+|--------|------|-------|
+| id | uuid | PK |
+| kid_id | uuid | FK → kids |
+| total_points | int | Current total as entered by parent |
+| previous_total | int | Last recorded total (for delta calc) |
+| delta_points | int | Computed: total - previous |
+| dollar_equivalent | decimal | delta_points / 100 * 10 |
+| created_at | timestamp | When this snapshot was taken |
+
+*Each snapshot auto-generates a deposit transaction for the dollar equivalent.*
 
 ### settings
 | Column | Type | Notes |
