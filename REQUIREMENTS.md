@@ -173,7 +173,7 @@ Before committing money to a product, kids can preview projected growth:
 
 - [ ] Exact grandma seed amount per kid and current estimated value (Melody to check)
 - [ ] Stock price API choice (free tier options: Yahoo Finance, Alpha Vantage, Polygon.io, Finnhub)
-- [ ] Tech stack confirmation (leaning Next.js + Supabase)
+- [ ] Tech stack confirmation (leaning React + Vite + Supabase to match Hanzi Dojo)
 
 ## Proposed Data Model (Draft)
 
