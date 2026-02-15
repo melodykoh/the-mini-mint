@@ -8,12 +8,14 @@ A synthetic banking and investment app for teaching Aiden and Skylar money manag
 
 ## Key Files
 - `REQUIREMENTS.md` — Full requirements, data model, open questions
+- `PHASE_A_PLAN.md` — The Engine: 16-task execution plan for backend + admin UI
+- `LEARNINGS_APPLIED.md` — Hanzi Dojo learnings applied to this project
 - `CLAUDE.md` — This file (project context for Claude)
 
 ## Design Principles
 1. **Balances are computed, never stored** — derive from transaction ledger
 2. **Append-only ledger** — no editing/deleting transactions (add corrections instead)
-3. **Simple schema** — this is NOT Hanzi Dojo. ~6 tables. Keep it that way.
+3. **Simple schema** — this is NOT Hanzi Dojo. 7 tables. Keep it that way.
 4. **Mobile-first** — primary interaction is parent on phone
 5. **Kid-delightful** — the read-only views should feel fun, not like a spreadsheet
 6. **Explicit SQL aliases always** — use `t.kid_id` not `kid_id` in all queries (lesson from Hanzi Dojo)
