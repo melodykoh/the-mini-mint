@@ -172,8 +172,11 @@ Before committing money to a product, kids can preview projected growth:
 ## Open Questions
 
 - [ ] Exact grandma seed amount per kid and current estimated value (Melody to check)
-- [ ] Stock price API choice (free tier options: Yahoo Finance, Alpha Vantage, Polygon.io, Finnhub)
-- [ ] Tech stack confirmation (leaning React + Vite + Supabase to match Hanzi Dojo)
+
+## Resolved Technical Decisions
+
+- [x] **Tech stack: React + Vite + TypeScript + Tailwind + Supabase + Vercel** — matches Hanzi Dojo; both existing family apps are React + Supabase
+- [x] **Stock price API: Twelve Data** (fallback: Polygon.io) — 800 free calls/day, batch endpoint for all tickers in 1 call, covers stocks + ETFs + ADRs, 5+ years of daily history. API key stored as Supabase secret.
 
 ## Proposed Data Model (Draft)
 

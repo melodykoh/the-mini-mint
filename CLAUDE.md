@@ -22,7 +22,7 @@ A synthetic banking and investment app for teaching Aiden and Skylar money manag
 - React + Vite + TypeScript + Tailwind CSS (matches Hanzi Dojo for consistency)
 - Supabase (Postgres + auth + API)
 - Vercel (deployment)
-- Stock price API (TBD: Alpha Vantage, Yahoo Finance, Finnhub, or Polygon.io)
+- Stock price API: **Twelve Data** (free tier, 800 calls/day, batch endpoint). Fallback: Polygon.io
 
 ## Lessons Adopted from Hanzi Dojo
 
