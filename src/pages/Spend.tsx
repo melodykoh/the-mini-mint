@@ -9,6 +9,7 @@ import {
   getStockPositions,
 } from '../lib/transactions'
 import { supabase } from '../lib/supabase'
+import { extractErrorMessage } from '../lib/errors'
 
 function formatMoney(n: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -95,7 +96,7 @@ export default function Spend() {
       queryClient.invalidateQueries({ queryKey: ['mmf-balance'] })
       queryClient.invalidateQueries({ queryKey: ['stock-positions'] })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Spend failed')
+      setError(extractErrorMessage(err))
     } finally {
       setSubmitting(false)
     }

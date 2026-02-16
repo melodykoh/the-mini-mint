@@ -16,6 +16,7 @@ import {
   sellStock,
 } from '../lib/transactions'
 import { supabase } from '../lib/supabase'
+import { extractErrorMessage } from '../lib/errors'
 
 function formatMoney(n: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -74,7 +75,7 @@ function MmfSection({ kidId }: { kidId: string }) {
       setInvestAmount('')
       invalidate()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
+      setError(extractErrorMessage(e))
     } finally {
       setSubmitting(false)
     }
@@ -90,7 +91,7 @@ function MmfSection({ kidId }: { kidId: string }) {
       setRedeemAmount('')
       invalidate()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
+      setError(extractErrorMessage(e))
     } finally {
       setSubmitting(false)
     }
@@ -182,7 +183,7 @@ function CdSection({ kidId }: { kidId: string }) {
       setCdAmount('')
       invalidate()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
+      setError(extractErrorMessage(e))
     } finally {
       setSubmitting(false)
     }
@@ -195,7 +196,7 @@ function CdSection({ kidId }: { kidId: string }) {
       await matureCd(lotId)
       invalidate()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
+      setError(extractErrorMessage(e))
     } finally {
       setSubmitting(false)
     }
@@ -208,7 +209,7 @@ function CdSection({ kidId }: { kidId: string }) {
       await breakCd(lotId)
       invalidate()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
+      setError(extractErrorMessage(e))
     } finally {
       setSubmitting(false)
     }
@@ -360,7 +361,7 @@ function StockSection({ kidId }: { kidId: string }) {
       setBuyAmount('')
       invalidate()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
+      setError(extractErrorMessage(e))
     } finally {
       setSubmitting(false)
     }
@@ -376,7 +377,7 @@ function StockSection({ kidId }: { kidId: string }) {
       setSellAmounts((prev) => ({ ...prev, [ticker]: '' }))
       invalidate()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed')
+      setError(extractErrorMessage(e))
     } finally {
       setSubmitting(false)
     }
@@ -509,7 +510,7 @@ function StockSection({ kidId }: { kidId: string }) {
 export default function Invest() {
   const { kidId } = useParams<{ kidId: string }>()
 
-  const { data: kids } = useQuery({
+  const { data: kids, isLoading: kidsLoading } = useQuery({
     queryKey: ['kids'],
     queryFn: async () => {
       const { data } = await supabase.from('kids').select('*').order('name')
@@ -517,21 +518,46 @@ export default function Invest() {
     },
   })
 
-  const { data: cash = 0 } = useQuery({
+  const { data: cash = 0, isLoading: cashLoading } = useQuery({
     queryKey: ['cash-balance', kidId],
     queryFn: () => getCashBalance(kidId!),
     enabled: !!kidId,
   })
 
-  const kidName = kids?.find((k) => k.id === kidId)?.name ?? 'Unknown'
+  const kidName = kids?.find((k) => k.id === kidId)?.name
+  const isLoading = kidsLoading || cashLoading
 
   if (!kidId) return <p>No kid selected</p>
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="h-8 w-48 animate-pulse rounded bg-gray-200" />
+            <div className="mt-2 h-4 w-32 animate-pulse rounded bg-gray-200" />
+          </div>
+          <Link
+            to="/"
+            className="text-sm text-blue-600 hover:text-blue-700"
+          >
+            Back
+          </Link>
+        </div>
+        <div className="mt-6 space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-32 animate-pulse rounded-xl border border-gray-200 bg-gray-50" />
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto max-w-lg">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{kidName}'s Investments</h1>
+          <h1 className="text-2xl font-bold">{kidName ?? 'Unknown'}'s Investments</h1>
           <p className="mt-1 text-sm text-gray-500">
             Available to invest:{' '}
             <span className="font-semibold text-blue-600">

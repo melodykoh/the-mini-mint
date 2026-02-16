@@ -9,12 +9,14 @@ export async function depositToCash(
   amount: number,
   note?: string,
   source?: string,
+  metadata?: Record<string, unknown>,
 ) {
   const { data, error } = await supabase.rpc('deposit_to_cash', {
     p_kid_id: kidId,
     p_amount: amount,
     p_note: note ?? null,
     p_source: source ?? null,
+    p_metadata: metadata ?? null,
   })
   if (error) throw error
   return data as { new_balance: number }[]

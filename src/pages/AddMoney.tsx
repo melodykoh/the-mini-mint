@@ -4,6 +4,7 @@ import { KidSelector } from '../components/KidSelector'
 import { MoneyInput } from '../components/MoneyInput'
 import { depositToCash } from '../lib/transactions'
 import { supabase } from '../lib/supabase'
+import { extractErrorMessage } from '../lib/errors'
 
 const SOURCES = [
   { key: 'chores', label: 'Chores' },
@@ -104,7 +105,10 @@ export default function AddMoney() {
           setSubmitting(false)
           return
         }
-        const result = await depositToCash(kidId, hanziAmount, note || undefined, 'hanzi_dojo')
+        const result = await depositToCash(kidId, hanziAmount, note || undefined, 'hanzi_dojo', {
+          points_total: currentPoints,
+          points_delta: pointsDelta,
+        })
         const newBalance = result?.[0]?.new_balance ?? 0
         setSuccess(
           `${pointsDelta.toLocaleString()} points → ${formatMoney(hanziAmount)} deposited. New cash balance: ${formatMoney(newBalance)}`,
@@ -128,8 +132,9 @@ export default function AddMoney() {
       setPointsTotal('')
       setNote('')
       queryClient.invalidateQueries({ queryKey: ['portfolio'] })
+      queryClient.invalidateQueries({ queryKey: ['hanzi-dojo-last'] })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Deposit failed')
+      setError(extractErrorMessage(err))
     } finally {
       setSubmitting(false)
     }

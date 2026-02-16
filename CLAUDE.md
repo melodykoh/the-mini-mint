@@ -4,7 +4,7 @@
 A synthetic banking and investment app for teaching Aiden and Skylar money management. Parent-administered, kid-viewable. No real accounts, no cards, no tax implications.
 
 ## Project Status
-**Phase: Requirements** — refining before any code is written.
+**Phase: Phase A (The Engine)** — backend RPCs + admin UI complete, smoke testing in progress.
 
 ## Key Files
 - `REQUIREMENTS.md` — Full requirements, data model, open questions
@@ -55,6 +55,7 @@ A synthetic banking and investment app for teaching Aiden and Skylar money manag
 - **Don't over-engineer the schema** — Hanzi Dojo has 41 migrations because it's building a character DB from scratch. This app's "content" (stock prices) comes from an API. Target: <10 migrations total.
 - **Don't modify RPCs without reading the entire function** — the alias pattern is always intentional
 - **Don't skip RPC testing** — data queries can pass while RPC silently returns wrong results
+- **Don't write ad-hoc SQL from memory** — always verify column names, trigger names, and table structure against `001_initial_schema.sql` before giving SQL to run. Three errors in a row (wrong column name, wrong trigger name, wrong trigger name again) is unacceptable. Read the schema first, write the SQL second.
 
 ## QA Strategy
 

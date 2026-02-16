@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { getKids } from '../lib/kids'
 import { accrueMmfInterest } from '../lib/transactions'
 import { refreshStockPrices } from '../lib/stock-prices'
+import { extractErrorMessage } from '../lib/errors'
 
 interface SettingRow {
   key: string
@@ -144,7 +145,7 @@ export default function Settings() {
       queryClient.invalidateQueries({ queryKey: ['settings'] })
       queryClient.invalidateQueries({ queryKey: ['simulator-settings'] })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Save failed')
+      setError(extractErrorMessage(err))
     } finally {
       setSaving(false)
     }
@@ -159,7 +160,7 @@ export default function Settings() {
         `Prices refreshed: ${result.updated.length} updated, ${result.skipped.length} skipped, ${result.failed.length} failed`,
       )
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Refresh failed')
+      setError(extractErrorMessage(err))
     } finally {
       setRefreshing(false)
     }
@@ -178,7 +179,7 @@ export default function Settings() {
       setSuccess(`Interest accrued — ${results.join(', ')}`)
       queryClient.invalidateQueries({ queryKey: ['portfolio'] })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Accrual failed')
+      setError(extractErrorMessage(err))
     } finally {
       setAccruing(false)
     }
