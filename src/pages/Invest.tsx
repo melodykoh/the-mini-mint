@@ -216,6 +216,20 @@ function CdSection({ kidId }: { kidId: string }) {
     queryFn: () => getCashBalance(kidId),
   })
 
+  const cdApyKeys = { 3: 'cd_3m_apy', 6: 'cd_6m_apy', 12: 'cd_12m_apy' } as const
+  const { data: cdApyMap } = useQuery({
+    queryKey: ['cd-apy-rates'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('settings')
+        .select('key, value')
+        .in('key', ['cd_3m_apy', 'cd_6m_apy', 'cd_12m_apy'])
+      const map: Record<string, number> = {}
+      data?.forEach((row) => { map[row.key] = parseFloat(row.value) })
+      return map
+    },
+  })
+
   const activeLots = lots.filter((l) => l.status === 'active')
 
   const invalidate = () => {
@@ -373,20 +387,24 @@ function CdSection({ kidId }: { kidId: string }) {
       <div className="mt-4">
         <p className="text-sm font-medium text-gray-700">Open New CD</p>
         <div className="mt-2 flex gap-2">
-          {[3, 6, 12].map((term) => (
-            <button
-              key={term}
-              type="button"
-              onClick={() => setCdTerm(term)}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium ${
-                cdTerm === term
-                  ? 'bg-amber-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {term}mo
-            </button>
-          ))}
+          {[3, 6, 12].map((term) => {
+            const apyKey = cdApyKeys[term as keyof typeof cdApyKeys]
+            const apy = cdApyMap?.[apyKey]
+            return (
+              <button
+                key={term}
+                type="button"
+                onClick={() => setCdTerm(term)}
+                className={`rounded-full px-4 py-1.5 text-sm font-medium ${
+                  cdTerm === term
+                    ? 'bg-amber-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {term}mo{apy != null ? ` — ${(apy * 100).toFixed(1)}%` : ''}
+              </button>
+            )
+          })}
         </div>
         <div className="mt-2 flex gap-2">
           <div className="flex-1">
