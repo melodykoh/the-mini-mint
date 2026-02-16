@@ -96,13 +96,13 @@ function KidCard({ kid }: { kid: { id: string; name: string } }) {
           Invest
         </Link>
         <Link
-          to="/add-money"
+          to={`/add-money?kid=${kid.id}`}
           className="flex-1 rounded-lg bg-blue-50 py-2 text-center text-sm font-medium text-blue-700 hover:bg-blue-100"
         >
           Add Money
         </Link>
         <Link
-          to="/spend"
+          to={`/spend?kid=${kid.id}`}
           className="flex-1 rounded-lg bg-gray-100 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-200"
         >
           Spend

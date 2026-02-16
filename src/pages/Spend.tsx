@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { KidSelector } from '../components/KidSelector'
 import { MoneyInput } from '../components/MoneyInput'
@@ -17,9 +18,10 @@ import { formatMoney } from '../lib/format'
 type SourceBucket = 'cash' | 'mmf' | 'stock'
 
 export default function Spend() {
+  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const flow = useActionFlow()
-  const [kidId, setKidId] = useState('')
+  const [kidId, setKidId] = useState(searchParams.get('kid') ?? '')
   const [source, setSource] = useState<SourceBucket>('cash')
   const [ticker, setTicker] = useState('')
   const [amount, setAmount] = useState('')

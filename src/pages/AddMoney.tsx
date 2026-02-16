@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { KidSelector } from '../components/KidSelector'
 import { MoneyInput } from '../components/MoneyInput'
@@ -20,9 +21,10 @@ const SOURCES = [
 ]
 
 export default function AddMoney() {
+  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const flow = useActionFlow()
-  const [kidId, setKidId] = useState('')
+  const [kidId, setKidId] = useState(searchParams.get('kid') ?? '')
   const [source, setSource] = useState('')
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
