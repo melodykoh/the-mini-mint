@@ -322,7 +322,7 @@ CREATE TYPE cd_status AS ENUM ('active', 'matured', 'broken');
 - [ ] `transactions.amount` is `numeric(12,2)` — positive for inflows, negative for outflows
 - [ ] `transactions.amount` has CHECK: `ABS(amount) <= 100000` and `amount = ROUND(amount, 2)`
 - [ ] `transactions.metadata` is `jsonb` (nullable)
-- [ ] `transactions.created_by` is `uuid NOT NULL REFERENCES auth.users(id) ON DELETE SET NULL` — NOT a parameter, derived from `auth.uid()` in RPCs
+- [ ] `transactions.created_by` is `uuid NOT NULL REFERENCES auth.users(id) ON DELETE RESTRICT` — NOT a parameter, derived from `auth.uid()` in RPCs
 - [ ] `cd_lots.term_months` has CHECK constraint: `term_months IN (3, 6, 12)`
 - [ ] `cd_lots.status` uses `cd_status` ENUM
 - [ ] `cd_lots.maturity_date` computed in `create_cd` RPC: `start_date + (term_months * interval '1 month')`
