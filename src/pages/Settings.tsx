@@ -83,6 +83,8 @@ const SETTING_DEFS = [
   },
 ]
 
+const SHOW_TEST_KIDS_KEY = 'tmm_show_test_kids'
+
 export default function Settings() {
   const queryClient = useQueryClient()
   const [values, setValues] = useState<Record<string, string>>({})
@@ -91,6 +93,9 @@ export default function Settings() {
   const [success, setSuccess] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const accrueFlow = useActionFlow()
+  const [showTestKids, setShowTestKids] = useState(() => {
+    return localStorage.getItem(SHOW_TEST_KIDS_KEY) !== 'false'
+  })
 
   const { data: settings } = useQuery({
     queryKey: ['settings'],
@@ -317,6 +322,29 @@ export default function Settings() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Display */}
+      <div className="mt-8 space-y-3">
+        <h2 className="text-lg font-semibold">Display</h2>
+        <label className="flex items-center gap-3 rounded-lg border border-gray-200 p-4">
+          <input
+            type="checkbox"
+            checked={showTestKids}
+            onChange={(e) => {
+              const next = e.target.checked
+              setShowTestKids(next)
+              localStorage.setItem(SHOW_TEST_KIDS_KEY, String(next))
+            }}
+            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <div>
+            <p className="text-sm font-medium">Show test kids</p>
+            <p className="text-xs text-gray-500">
+              Show QA-Alice, QA-Bob, and TestKid on the Dashboard
+            </p>
+          </div>
+        </label>
       </div>
     </div>
   )
