@@ -1,8 +1,13 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getKids } from '../lib/kids'
 import { getPortfolioSummary } from '../lib/transactions'
 import { formatMoney } from '../lib/format'
+
+function isTestKid(name: string): boolean {
+  return name.startsWith('QA-') || name === 'TestKid'
+}
 
 function BucketBar({ summary }: { summary: ReturnType<typeof usePortfolio>['data'] }) {
   if (!summary || summary.grand_total === 0) return null
@@ -96,13 +101,13 @@ function KidCard({ kid }: { kid: { id: string; name: string } }) {
           Invest
         </Link>
         <Link
-          to="/add-money"
+          to={`/add-money?kid=${kid.id}`}
           className="flex-1 rounded-lg bg-blue-50 py-2 text-center text-sm font-medium text-blue-700 hover:bg-blue-100"
         >
           Add Money
         </Link>
         <Link
-          to="/spend"
+          to={`/spend?kid=${kid.id}`}
           className="flex-1 rounded-lg bg-gray-100 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-200"
         >
           Spend
@@ -123,6 +128,13 @@ export default function Dashboard() {
     queryKey: ['kids'],
     queryFn: getKids,
   })
+  const [showTestKids] = useState(
+    () => localStorage.getItem('tmm_show_test_kids') !== 'false',
+  )
+
+  const visibleKids = (kids ?? []).filter(
+    (kid) => showTestKids || !isTestKid(kid.name),
+  )
 
   return (
     <div>
@@ -132,7 +144,7 @@ export default function Dashboard() {
       {isLoading && <p className="mt-4 text-gray-400">Loading...</p>}
 
       <div className="mt-6 space-y-4">
-        {(kids ?? []).map((kid) => (
+        {visibleKids.map((kid) => (
           <KidCard key={kid.id} kid={kid} />
         ))}
       </div>
