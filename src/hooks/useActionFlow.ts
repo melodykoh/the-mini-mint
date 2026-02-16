@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { extractErrorMessage } from '../lib/errors'
 
 export interface ActionSummary {
   title: string
@@ -60,16 +61,10 @@ export function useActionFlow(): ActionFlow {
         isSubmitting: false,
       })
     } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : err && typeof err === 'object' && 'message' in err
-            ? String((err as { message: string }).message)
-            : 'Something went wrong. Please try again.'
       setState((prev) => ({
         ...prev,
         isSubmitting: false,
-        error: message,
+        error: extractErrorMessage(err),
       }))
     }
   }, [])

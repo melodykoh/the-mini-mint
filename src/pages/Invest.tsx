@@ -19,13 +19,7 @@ import {
   sellStock,
 } from '../lib/transactions'
 import { supabase } from '../lib/supabase'
-
-function formatMoney(n: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(n)
-}
+import { formatMoney } from '../lib/format'
 
 function gainColor(n: number): string {
   if (n > 0) return 'text-emerald-600'

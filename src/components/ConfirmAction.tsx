@@ -32,13 +32,13 @@ export function ConfirmAction({
         {summary.title}
       </h3>
 
-      <dl className="mt-3 space-y-1">
+      <ul className="mt-3 space-y-1">
         {summary.details.map((detail, i) => (
-          <dd key={i} className="text-sm text-gray-700">
+          <li key={i} className="text-sm text-gray-700">
             {detail}
-          </dd>
+          </li>
         ))}
-      </dl>
+      </ul>
 
       {summary.balanceImpact && (
         <p className="mt-3 text-sm font-medium text-gray-900">

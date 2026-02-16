@@ -8,6 +8,7 @@ import {
   type StockReturn,
 } from '../lib/simulator'
 import { getTrackedTickers } from '../lib/stock-prices'
+import { formatMoney } from '../lib/format'
 
 const HORIZONS = [
   { label: '3 mo', months: 3 },
@@ -16,13 +17,6 @@ const HORIZONS = [
   { label: '3 yr', months: 36 },
   { label: '5 yr', months: 60 },
 ]
-
-function formatMoney(n: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(n)
-}
 
 function formatPct(n: number): string {
   const sign = n >= 0 ? '+' : ''

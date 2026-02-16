@@ -7,6 +7,7 @@ import { SuccessCard } from '../components/SuccessCard'
 import { useActionFlow } from '../hooks/useActionFlow'
 import { depositToCash } from '../lib/transactions'
 import { supabase } from '../lib/supabase'
+import { formatMoney } from '../lib/format'
 
 const SOURCES = [
   { key: 'chores', label: 'Chores' },
@@ -17,13 +18,6 @@ const SOURCES = [
   { key: 'gift', label: 'Gift' },
   { key: 'other', label: 'Other' },
 ]
-
-function formatMoney(n: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(n)
-}
 
 export default function AddMoney() {
   const queryClient = useQueryClient()
@@ -147,6 +141,7 @@ export default function AddMoney() {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['portfolio'] })
     queryClient.invalidateQueries({ queryKey: ['hanzi-dojo-last'] })
+    queryClient.invalidateQueries({ queryKey: ['cash-balance'] })
   }
 
   const handleDoAnother = () => {

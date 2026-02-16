@@ -12,13 +12,7 @@ import {
   getStockPositions,
 } from '../lib/transactions'
 import { supabase } from '../lib/supabase'
-
-function formatMoney(n: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(n)
-}
+import { formatMoney } from '../lib/format'
 
 type SourceBucket = 'cash' | 'mmf' | 'stock'
 

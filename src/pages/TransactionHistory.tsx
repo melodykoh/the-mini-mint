@@ -2,12 +2,17 @@ import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { formatMoney } from '../lib/format'
 
-function formatMoney(n: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(Math.abs(n))
+interface Transaction {
+  id: string
+  kid_id: string
+  type: string
+  bucket: string
+  amount: string
+  note: string | null
+  metadata: Record<string, unknown> | null
+  created_at: string
 }
 
 type BucketFilter = 'all' | 'cash' | 'mmf' | 'cd' | 'stock'
@@ -39,8 +44,8 @@ const TYPE_ICONS: Record<string, string> = {
 }
 
 function groupByDate(
-  transactions: { created_at: string }[],
-): { label: string; items: typeof transactions }[] {
+  transactions: Transaction[],
+): { label: string; items: Transaction[] }[] {
   const now = new Date()
   const today = now.toDateString()
   const yesterday = new Date(now.getTime() - 86400000).toDateString()
@@ -110,7 +115,7 @@ export default function TransactionHistory() {
 
       const { data, error } = await query
       if (error) throw error
-      return data ?? []
+      return (data ?? []) as Transaction[]
     },
     enabled: !!kidId,
   })
@@ -213,7 +218,7 @@ export default function TransactionHistory() {
                           }`}
                         >
                           {isInflow ? '+' : '-'}
-                          {formatMoney(amount)}
+                          {formatMoney(Math.abs(amount))}
                         </span>
                         <span
                           className={`rounded-full px-2 py-0.5 text-xs font-medium ${
