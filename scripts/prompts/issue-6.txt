@@ -1,0 +1,30 @@
+You are working on The Mini Mint app (React + Vite + TypeScript + Tailwind + Supabase).
+
+## Task: GitHub Issue #6 — Add toggle in Settings to hide/show test kids from Dashboard
+
+### Problem
+QA-Alice, QA-Bob, and TestKid clutter the Dashboard during normal use. Need a toggle to hide them.
+
+### What to do
+1. Read src/pages/Settings.tsx — understand the settings UI pattern
+2. Read src/pages/Dashboard.tsx — understand how kids are rendered
+3. Add a "Show test kids" toggle to Settings page (use localStorage, not the settings table — simpler, no migration)
+4. In Dashboard, filter out kids whose names start with "QA-" or equal "TestKid" when the toggle is off
+5. Default the toggle to ON (show all kids)
+
+### Acceptance criteria
+- New toggle appears in Settings page labeled "Show test kids"
+- When OFF: Dashboard hides kids named "QA-Alice", "QA-Bob", "TestKid" (any name starting with "QA-" or matching "TestKid")
+- When ON: all kids visible (current behavior)
+- Toggle state persists across page reloads (localStorage)
+- Other pages (Invest, History, Add Money, Spend) are NOT affected — they still work for hidden kids
+- TypeScript compiles clean (npx tsc --noEmit)
+
+### Rules
+- Read all relevant files BEFORE making changes
+- Use localStorage (key: "tmm_show_test_kids", values: "true"/"false")
+- Keep it simple — no new components needed, just a checkbox/toggle in Settings and a filter in Dashboard
+- Do not change any other behavior
+- Commit when done with message referencing issue #6
+
+When ALL acceptance criteria are met and committed, output: ISSUE 6 COMPLETE

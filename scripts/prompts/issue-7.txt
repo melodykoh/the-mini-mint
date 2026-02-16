@@ -1,0 +1,27 @@
+You are working on The Mini Mint app (React + Vite + TypeScript + Tailwind + Supabase).
+
+## Task: GitHub Issue #7 — Show APY rates under CD duration options on Invest page
+
+### Problem
+The CD section on the Invest page shows duration options (3-month, 6-month, 12-month) but does not show the APY for each term. Users cannot see the rate before investing.
+
+### What to do
+1. Read src/pages/Invest.tsx — find the CD section and how terms are rendered
+2. The settings query is already available on the Invest page (used for stock_position_limit)
+3. Display the APY next to each CD term option, e.g., "6 months — 5.0% APY"
+4. Settings keys: cd_3m_apy, cd_6m_apy, cd_12m_apy (stored as decimals, e.g., 0.05 = 5.0%)
+
+### Acceptance criteria
+- Each CD term option displays its current APY percentage (e.g., "3 months — 4.8% APY")
+- APY values come from the settings query (cd_3m_apy, cd_6m_apy, cd_12m_apy)
+- Display format: multiply by 100, one decimal place (e.g., 0.048 becomes "4.8%")
+- If settings have not loaded yet, show term without APY (no "undefined%" or NaN)
+- TypeScript compiles clean (npx tsc --noEmit)
+
+### Rules
+- Read the entire CdSection in Invest.tsx BEFORE making changes
+- Minimal change — just add APY display text, do not restructure the section
+- Do not change any other behavior
+- Commit when done with message referencing issue #7
+
+When ALL acceptance criteria are met and committed, output: ISSUE 7 COMPLETE

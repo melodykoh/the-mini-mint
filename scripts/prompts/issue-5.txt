@@ -1,0 +1,27 @@
+You are working on The Mini Mint app (React + Vite + TypeScript + Tailwind + Supabase).
+
+## Task: GitHub Issue #5 — Pre-select kid when navigating from Dashboard action buttons
+
+### Problem
+When clicking "Add Money" or "Spend" from a kid's card on the Dashboard, the target page opens with NO kid selected. The user has to re-select the kid manually.
+
+### What to do
+1. Read src/pages/Dashboard.tsx — the kid card action links
+2. Read src/pages/AddMoney.tsx and src/pages/Spend.tsx — how they select a kid
+3. Modify the Dashboard links for "Add Money" and "Spend" to pass the kid ID (use query param or route state)
+4. Modify AddMoney.tsx and Spend.tsx to read and pre-select the kid from the param/state
+5. Invest and History already use /kid/:kidId/ routes — verify they work (no change needed)
+
+### Acceptance criteria
+- Clicking "Add Money" from a kid's Dashboard card leads to the kid being pre-selected on the Add Money page
+- Clicking "Spend" from a kid's Dashboard card leads to the kid being pre-selected on the Spend page
+- Navigating to /add-money or /spend directly (from header nav) results in no kid pre-selected (current behavior preserved)
+- TypeScript compiles clean (npx tsc --noEmit)
+
+### Rules
+- Read all relevant files BEFORE making changes
+- Use the simplest approach (query param ?kid=uuid or Link state)
+- Do not change any other behavior
+- Commit when done with message referencing issue #5
+
+When ALL acceptance criteria are met and committed, output: ISSUE 5 COMPLETE
