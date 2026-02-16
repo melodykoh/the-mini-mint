@@ -113,6 +113,12 @@ function KidCard({ kid }: { kid: { id: string; name: string } }) {
         >
           Spend
         </Link>
+        <Link
+          to={`/kid/${kid.id}/history`}
+          className="flex-1 rounded-lg bg-gray-100 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-200"
+        >
+          History
+        </Link>
       </div>
     </div>
   )

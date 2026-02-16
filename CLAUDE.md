@@ -81,6 +81,9 @@ This project uses two complementary tools:
 
 **Note:** Agent Browser requires a dev session running in terminal (`npx agent-browser`).
 
+### Automated QA Account (TODO)
+QA runs should use a **dedicated test account** (not Melody's production account). This prevents: (1) QA mutations affecting real kid balances, (2) login blockers when user isn't present. Needs: a Supabase auth user with known credentials in `.env.test.local`, and a resettable test kid profile.
+
 ## What NOT To Do
 - Don't over-engineer the schema
 - Don't add features before the core ledger works
