@@ -93,6 +93,11 @@ QA runs use a dedicated test account (not Melody's production account). Credenti
 
 **QA discipline:** Only operate on `QA-` prefixed kids during testing. All admins see all kids — Melody sees QA kids, test user sees Aiden/Skylar. Seed script: `scripts/seed-qa-kids.mjs`.
 
+## Deployment (Vercel)
+
+- **Add env vars for BOTH Production and Preview** — when adding `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` to Vercel, check both environments. Preview-only env vars missing caused a 0ms build failure on PR #4 that was hard to diagnose (no error message, just instant failure).
+- **Vercel CLI deploy ≠ PR preview** — `vercel` or `vercel --prod=false` deploys from local files to Vercel infra but does NOT link to a GitHub PR. Only a `git push` to the branch triggers the GitHub integration that creates the PR-linked preview deployment.
+
 ## What NOT To Do
 - Don't over-engineer the schema
 - Don't add features before the core ledger works
