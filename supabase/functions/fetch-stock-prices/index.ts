@@ -28,12 +28,24 @@ interface ResultSummary {
   rows_upserted: number;
 }
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 Deno.serve(async (req: Request) => {
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   // Only accept POST
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
@@ -41,7 +53,7 @@ Deno.serve(async (req: Request) => {
   if (!apiKey) {
     return new Response(
       JSON.stringify({ error: "TWELVE_DATA_API_KEY not configured" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 
@@ -68,7 +80,7 @@ Deno.serve(async (req: Request) => {
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { "Content-Type": "application/json" },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -82,13 +94,13 @@ Deno.serve(async (req: Request) => {
     if (!adminCheck) {
       return new Response(
         JSON.stringify({ error: "Forbidden: not an admin" }),
-        { status: 403, headers: { "Content-Type": "application/json" } },
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
   } else {
     return new Response(JSON.stringify({ error: "No auth token provided" }), {
       status: 401,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
@@ -119,7 +131,7 @@ Deno.serve(async (req: Request) => {
             error: "Rate limited: prices were refreshed less than 1 hour ago",
             last_refresh: lastRefresh.value,
           }),
-          { status: 429, headers: { "Content-Type": "application/json" } },
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
     }
@@ -151,7 +163,7 @@ Deno.serve(async (req: Request) => {
         rows_upserted: 0,
         message: "No tickers to fetch",
       }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 
@@ -174,7 +186,7 @@ Deno.serve(async (req: Request) => {
   } else {
     return new Response(
       JSON.stringify({ error: `Invalid mode: ${mode}` }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 
@@ -188,7 +200,7 @@ Deno.serve(async (req: Request) => {
 
   return new Response(JSON.stringify(result), {
     status: 200,
-    headers: { "Content-Type": "application/json" },
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });
 
