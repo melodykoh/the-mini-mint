@@ -7,6 +7,7 @@ import Simulator from './pages/Simulator'
 import AddMoney from './pages/AddMoney'
 import Invest from './pages/Invest'
 import Spend from './pages/Spend'
+import TransactionHistory from './pages/TransactionHistory'
 import Settings from './pages/Settings'
 import { useAuth } from './hooks/useAuth'
 
@@ -57,6 +58,16 @@ function App() {
           <ProtectedRoute>
             <Layout>
               <Spend />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/kid/:kidId/history"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <TransactionHistory />
             </Layout>
           </ProtectedRoute>
         }

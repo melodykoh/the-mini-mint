@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { MoneyInput } from '../components/MoneyInput'
+import { ConfirmAction } from '../components/ConfirmAction'
+import { SuccessCard } from '../components/SuccessCard'
+import { useActionFlow } from '../hooks/useActionFlow'
 import {
   getCashBalance,
   getMmfBalance,
@@ -16,14 +19,7 @@ import {
   sellStock,
 } from '../lib/transactions'
 import { supabase } from '../lib/supabase'
-import { extractErrorMessage } from '../lib/errors'
-
-function formatMoney(n: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(n)
-}
+import { formatMoney } from '../lib/format'
 
 function gainColor(n: number): string {
   if (n > 0) return 'text-emerald-600'
@@ -32,19 +28,25 @@ function gainColor(n: number): string {
 }
 
 // ============================================================
-// MMF Section (T13a)
+// MMF Section
 // ============================================================
 
 function MmfSection({ kidId }: { kidId: string }) {
   const queryClient = useQueryClient()
+  const flow = useActionFlow()
   const [investAmount, setInvestAmount] = useState('')
   const [redeemAmount, setRedeemAmount] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  // Track which action was requested so confirm() knows what to do
+  const [pendingAction, setPendingAction] = useState<'invest' | 'redeem' | null>(null)
 
   const { data: mmfBalance = 0 } = useQuery({
     queryKey: ['mmf-balance', kidId],
     queryFn: () => getMmfBalance(kidId),
+  })
+
+  const { data: cashBalance = 0 } = useQuery({
+    queryKey: ['cash-balance', kidId],
+    queryFn: () => getCashBalance(kidId),
   })
 
   const { data: mmfApy } = useQuery({
@@ -65,36 +67,80 @@ function MmfSection({ kidId }: { kidId: string }) {
     queryClient.invalidateQueries({ queryKey: ['mmf-balance'] })
   }
 
-  const handleInvest = async () => {
+  const handleRequestInvest = () => {
     const amt = parseFloat(investAmount)
     if (!amt || amt <= 0) return
-    setError(null)
-    setSubmitting(true)
-    try {
-      await investInMmf(kidId, amt)
-      setInvestAmount('')
-      invalidate()
-    } catch (e) {
-      setError(extractErrorMessage(e))
-    } finally {
-      setSubmitting(false)
-    }
+    setPendingAction('invest')
+    flow.requestConfirmation({
+      title: `Invest ${formatMoney(amt)} in MMF`,
+      details: [],
+      balanceImpact: `Cash: ${formatMoney(cashBalance)} → ${formatMoney(cashBalance - amt)} | MMF: ${formatMoney(mmfBalance)} → ${formatMoney(mmfBalance + amt)}`,
+      warning: cashBalance < amt ? 'Insufficient cash balance' : undefined,
+    })
   }
 
-  const handleRedeem = async () => {
+  const handleRequestRedeem = () => {
     const amt = parseFloat(redeemAmount)
     if (!amt || amt <= 0) return
-    setError(null)
-    setSubmitting(true)
-    try {
-      await redeemFromMmf(kidId, amt)
-      setRedeemAmount('')
-      invalidate()
-    } catch (e) {
-      setError(extractErrorMessage(e))
-    } finally {
-      setSubmitting(false)
-    }
+    setPendingAction('redeem')
+    flow.requestConfirmation({
+      title: `Withdraw ${formatMoney(amt)} from MMF`,
+      details: [],
+      balanceImpact: `MMF: ${formatMoney(mmfBalance)} → ${formatMoney(mmfBalance - amt)} | Cash: ${formatMoney(cashBalance)} → ${formatMoney(cashBalance + amt)}`,
+      warning: mmfBalance < amt ? 'Insufficient MMF balance' : undefined,
+    })
+  }
+
+  const handleConfirm = () => {
+    flow.confirm(async () => {
+      if (pendingAction === 'invest') {
+        const amt = parseFloat(investAmount)
+        const result = await investInMmf(kidId, amt)
+        invalidate()
+        return `Invested ${formatMoney(amt)} in MMF. Cash: ${formatMoney(result?.[0]?.cash_balance ?? 0)} | MMF: ${formatMoney(result?.[0]?.mmf_balance ?? 0)}`
+      } else {
+        const amt = parseFloat(redeemAmount)
+        const result = await redeemFromMmf(kidId, amt)
+        invalidate()
+        return `Withdrew ${formatMoney(amt)} from MMF. Cash: ${formatMoney(result?.[0]?.cash_balance ?? 0)} | MMF: ${formatMoney(result?.[0]?.mmf_balance ?? 0)}`
+      }
+    })
+  }
+
+  const handleDoAnother = () => {
+    setInvestAmount('')
+    setRedeemAmount('')
+    setPendingAction(null)
+    flow.reset()
+  }
+
+  if (flow.phase === 'success') {
+    return (
+      <section className="rounded-xl border border-gray-200 bg-white p-5">
+        <h3 className="text-base font-semibold">Money Market Fund</h3>
+        <div className="mt-3">
+          <SuccessCard message={flow.result!} kidId={kidId} onDoAnother={handleDoAnother} />
+        </div>
+      </section>
+    )
+  }
+
+  if (flow.phase === 'confirming' && flow.summary) {
+    return (
+      <section className="rounded-xl border border-gray-200 bg-white p-5">
+        <h3 className="text-base font-semibold">Money Market Fund</h3>
+        <div className="mt-3">
+          <ConfirmAction
+            summary={flow.summary}
+            variant={pendingAction === 'redeem' ? 'destructive' : 'default'}
+            isSubmitting={flow.isSubmitting}
+            error={flow.error}
+            onConfirm={handleConfirm}
+            onCancel={flow.cancel}
+          />
+        </div>
+      </section>
+    )
   }
 
   return (
@@ -109,8 +155,8 @@ function MmfSection({ kidId }: { kidId: string }) {
         )}
       </div>
 
-      {error && (
-        <p className="mt-2 text-sm text-red-600">{error}</p>
+      {flow.error && (
+        <p className="mt-2 text-sm text-red-600">{flow.error}</p>
       )}
 
       <div className="mt-4 grid grid-cols-2 gap-3">
@@ -122,8 +168,7 @@ function MmfSection({ kidId }: { kidId: string }) {
             onChange={setInvestAmount}
           />
           <button
-            onClick={handleInvest}
-            disabled={submitting}
+            onClick={handleRequestInvest}
             className="mt-2 w-full rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             Invest
@@ -137,8 +182,7 @@ function MmfSection({ kidId }: { kidId: string }) {
             onChange={setRedeemAmount}
           />
           <button
-            onClick={handleRedeem}
-            disabled={submitting}
+            onClick={handleRequestRedeem}
             className="mt-2 w-full rounded-md bg-gray-600 px-3 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
           >
             Withdraw
@@ -150,19 +194,26 @@ function MmfSection({ kidId }: { kidId: string }) {
 }
 
 // ============================================================
-// CD Section (T13b)
+// CD Section
 // ============================================================
 
 function CdSection({ kidId }: { kidId: string }) {
   const queryClient = useQueryClient()
+  const flow = useActionFlow()
   const [cdAmount, setCdAmount] = useState('')
   const [cdTerm, setCdTerm] = useState(3)
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const [pendingAction, setPendingAction] = useState<
+    { type: 'create' } | { type: 'mature'; lotId: string } | { type: 'break'; lotId: string } | null
+  >(null)
 
   const { data: lots = [] } = useQuery({
     queryKey: ['cd-lots', kidId],
     queryFn: () => getCdLots(kidId),
+  })
+
+  const { data: cashBalance = 0 } = useQuery({
+    queryKey: ['cash-balance', kidId],
+    queryFn: () => getCashBalance(kidId),
   })
 
   const activeLots = lots.filter((l) => l.status === 'active')
@@ -173,46 +224,62 @@ function CdSection({ kidId }: { kidId: string }) {
     queryClient.invalidateQueries({ queryKey: ['cd-lots'] })
   }
 
-  const handleCreate = async () => {
+  const handleRequestCreate = () => {
     const amt = parseFloat(cdAmount)
     if (!amt || amt <= 0) return
-    setError(null)
-    setSubmitting(true)
-    try {
-      await createCd(kidId, amt, cdTerm)
-      setCdAmount('')
-      invalidate()
-    } catch (e) {
-      setError(extractErrorMessage(e))
-    } finally {
-      setSubmitting(false)
-    }
+    setPendingAction({ type: 'create' })
+    flow.requestConfirmation({
+      title: `Lock ${formatMoney(amt)} in a ${cdTerm}-month CD`,
+      details: [`Term: ${cdTerm} months`],
+      balanceImpact: `Cash: ${formatMoney(cashBalance)} → ${formatMoney(cashBalance - amt)}`,
+      warning: cashBalance < amt ? 'Insufficient cash balance' : undefined,
+    })
   }
 
-  const handleMature = async (lotId: string) => {
-    setError(null)
-    setSubmitting(true)
-    try {
-      await matureCd(lotId)
-      invalidate()
-    } catch (e) {
-      setError(extractErrorMessage(e))
-    } finally {
-      setSubmitting(false)
-    }
+  const handleRequestMature = (lotId: string, principal: number) => {
+    setPendingAction({ type: 'mature', lotId })
+    flow.requestConfirmation({
+      title: `Collect matured CD`,
+      details: [`Principal: ${formatMoney(principal)}`],
+      balanceImpact: 'Principal + interest will be returned to cash',
+    })
   }
 
-  const handleBreak = async (lotId: string) => {
-    setError(null)
-    setSubmitting(true)
-    try {
-      await breakCd(lotId)
-      invalidate()
-    } catch (e) {
-      setError(extractErrorMessage(e))
-    } finally {
-      setSubmitting(false)
-    }
+  const handleRequestBreak = (lotId: string, principal: number) => {
+    setPendingAction({ type: 'break', lotId })
+    flow.requestConfirmation({
+      title: `Break CD early`,
+      details: [`Principal: ${formatMoney(principal)}`],
+      warning: 'Early withdrawal penalty will apply',
+    })
+  }
+
+  const handleConfirm = () => {
+    flow.confirm(async () => {
+      if (!pendingAction) throw new Error('No pending action')
+      if (pendingAction.type === 'create') {
+        const amt = parseFloat(cdAmount)
+        const result = await createCd(kidId, amt, cdTerm)
+        invalidate()
+        return `Locked ${formatMoney(amt)} in a ${cdTerm}-month CD. Matures ${result?.[0]?.maturity_date ?? 'soon'}`
+      } else if (pendingAction.type === 'mature') {
+        const result = await matureCd(pendingAction.lotId)
+        const r = result?.[0]
+        invalidate()
+        return `CD collected! Principal: ${formatMoney(r?.principal_returned ?? 0)} + Interest: ${formatMoney(r?.interest_earned ?? 0)} = ${formatMoney(r?.total_returned ?? 0)} returned to cash`
+      } else {
+        const result = await breakCd(pendingAction.lotId)
+        const r = result?.[0]
+        invalidate()
+        return `CD broken early. ${formatMoney(r?.net_returned ?? 0)} returned to cash (penalty: ${formatMoney(r?.penalty ?? 0)})`
+      }
+    })
+  }
+
+  const handleDoAnother = () => {
+    setCdAmount('')
+    setPendingAction(null)
+    flow.reset()
   }
 
   const isMatured = (lot: { maturity_date: string }) =>
@@ -223,11 +290,41 @@ function CdSection({ kidId }: { kidId: string }) {
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
   }
 
+  if (flow.phase === 'success') {
+    return (
+      <section className="rounded-xl border border-gray-200 bg-white p-5">
+        <h3 className="text-base font-semibold">Certificates of Deposit</h3>
+        <div className="mt-3">
+          <SuccessCard message={flow.result!} kidId={kidId} onDoAnother={handleDoAnother} />
+        </div>
+      </section>
+    )
+  }
+
+  if (flow.phase === 'confirming' && flow.summary) {
+    const isDestructive = pendingAction?.type === 'break'
+    return (
+      <section className="rounded-xl border border-gray-200 bg-white p-5">
+        <h3 className="text-base font-semibold">Certificates of Deposit</h3>
+        <div className="mt-3">
+          <ConfirmAction
+            summary={flow.summary}
+            variant={isDestructive ? 'destructive' : 'default'}
+            isSubmitting={flow.isSubmitting}
+            error={flow.error}
+            onConfirm={handleConfirm}
+            onCancel={flow.cancel}
+          />
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-5">
       <h3 className="text-base font-semibold">Certificates of Deposit</h3>
 
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      {flow.error && <p className="mt-2 text-sm text-red-600">{flow.error}</p>}
 
       {activeLots.length === 0 ? (
         <p className="mt-2 text-sm text-gray-500">
@@ -254,17 +351,15 @@ function CdSection({ kidId }: { kidId: string }) {
               <div>
                 {isMatured(lot) ? (
                   <button
-                    onClick={() => handleMature(lot.id)}
-                    disabled={submitting}
-                    className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                    onClick={() => handleRequestMature(lot.id, Number(lot.principal))}
+                    className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700"
                   >
                     Collect
                   </button>
                 ) : (
                   <button
-                    onClick={() => handleBreak(lot.id)}
-                    disabled={submitting}
-                    className="rounded-md bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+                    onClick={() => handleRequestBreak(lot.id, Number(lot.principal))}
+                    className="rounded-md bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700"
                   >
                     Break Early
                   </button>
@@ -303,9 +398,8 @@ function CdSection({ kidId }: { kidId: string }) {
             />
           </div>
           <button
-            onClick={handleCreate}
-            disabled={submitting}
-            className="mt-6 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+            onClick={handleRequestCreate}
+            className="mt-6 rounded-md bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
           >
             Lock it up
           </button>
@@ -316,20 +410,27 @@ function CdSection({ kidId }: { kidId: string }) {
 }
 
 // ============================================================
-// Stock Section (T13c)
+// Stock Section
 // ============================================================
 
 function StockSection({ kidId }: { kidId: string }) {
   const queryClient = useQueryClient()
+  const flow = useActionFlow()
   const [buyTicker, setBuyTicker] = useState('')
   const [buyAmount, setBuyAmount] = useState('')
   const [sellAmounts, setSellAmounts] = useState<Record<string, string>>({})
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const [pendingAction, setPendingAction] = useState<
+    { type: 'buy' } | { type: 'sell'; ticker: string; sellAll: boolean } | null
+  >(null)
 
   const { data: positions = [] } = useQuery({
     queryKey: ['stock-positions', kidId],
     queryFn: () => getStockPositions(kidId),
+  })
+
+  const { data: cashBalance = 0 } = useQuery({
+    queryKey: ['cash-balance', kidId],
+    queryFn: () => getCashBalance(kidId),
   })
 
   const { data: positionLimit } = useQuery({
@@ -350,42 +451,93 @@ function StockSection({ kidId }: { kidId: string }) {
     queryClient.invalidateQueries({ queryKey: ['stock-positions'] })
   }
 
-  const handleBuy = async () => {
+  const handleRequestBuy = () => {
     const amt = parseFloat(buyAmount)
     if (!buyTicker || !amt || amt <= 0) return
-    setError(null)
-    setSubmitting(true)
-    try {
-      await buyStock(kidId, buyTicker.toUpperCase(), amt)
-      setBuyTicker('')
-      setBuyAmount('')
-      invalidate()
-    } catch (e) {
-      setError(extractErrorMessage(e))
-    } finally {
-      setSubmitting(false)
-    }
+    setPendingAction({ type: 'buy' })
+    flow.requestConfirmation({
+      title: `Buy ${formatMoney(amt)} of ${buyTicker.toUpperCase()}`,
+      details: [],
+      balanceImpact: `Cash: ${formatMoney(cashBalance)} → ${formatMoney(cashBalance - amt)}`,
+      warning: cashBalance < amt ? 'Insufficient cash balance' : undefined,
+    })
   }
 
-  const handleSell = async (ticker: string, sellAll: boolean) => {
+  const handleRequestSell = (ticker: string, sellAll: boolean) => {
     const amt = sellAll ? 0 : parseFloat(sellAmounts[ticker] ?? '0')
     if (!sellAll && (!amt || amt <= 0)) return
-    setError(null)
-    setSubmitting(true)
-    try {
-      await sellStock(kidId, ticker, amt)
-      setSellAmounts((prev) => ({ ...prev, [ticker]: '' }))
-      invalidate()
-    } catch (e) {
-      setError(extractErrorMessage(e))
-    } finally {
-      setSubmitting(false)
-    }
+    const pos = positions.find((p) => p.ticker === ticker)
+    setPendingAction({ type: 'sell', ticker, sellAll })
+    flow.requestConfirmation({
+      title: sellAll
+        ? `Sell all ${ticker} (${formatMoney(pos?.current_value ?? 0)})`
+        : `Sell ${formatMoney(amt)} of ${ticker}`,
+      details: [
+        `Current value: ${formatMoney(pos?.current_value ?? 0)}`,
+        `Gain/loss: ${formatMoney(pos?.gain_loss ?? 0)}`,
+      ],
+      warning: sellAll ? 'This will close your entire position' : undefined,
+    })
   }
 
-  const isStale = (pos: { current_price: number }) => {
-    // We don't have the date in the enriched position, but if price is 0 it's stale
-    return pos.current_price === 0
+  const handleConfirm = () => {
+    flow.confirm(async () => {
+      if (!pendingAction) throw new Error('No pending action')
+      if (pendingAction.type === 'buy') {
+        const amt = parseFloat(buyAmount)
+        const result = await buyStock(kidId, buyTicker.toUpperCase(), amt)
+        const r = result?.[0]
+        invalidate()
+        return `Bought ${r?.shares_bought?.toFixed(4) ?? '?'} shares of ${buyTicker.toUpperCase()} at ${formatMoney(r?.price_per_share ?? 0)}/share`
+      } else {
+        const { ticker, sellAll } = pendingAction
+        const amt = sellAll ? 0 : parseFloat(sellAmounts[ticker] ?? '0')
+        const result = await sellStock(kidId, ticker, amt)
+        const r = result?.[0]
+        invalidate()
+        return `Sold ${r?.shares_sold?.toFixed(4) ?? '?'} shares of ${ticker}. Proceeds: ${formatMoney(r?.proceeds ?? 0)} (${(r?.realized_gain_loss ?? 0) >= 0 ? '+' : ''}${formatMoney(r?.realized_gain_loss ?? 0)})`
+      }
+    })
+  }
+
+  const handleDoAnother = () => {
+    setBuyTicker('')
+    setBuyAmount('')
+    setSellAmounts({})
+    setPendingAction(null)
+    flow.reset()
+  }
+
+  const isStale = (pos: { current_price: number }) => pos.current_price === 0
+
+  if (flow.phase === 'success') {
+    return (
+      <section className="rounded-xl border border-gray-200 bg-white p-5">
+        <h3 className="text-base font-semibold">Stocks & ETFs</h3>
+        <div className="mt-3">
+          <SuccessCard message={flow.result!} kidId={kidId} onDoAnother={handleDoAnother} />
+        </div>
+      </section>
+    )
+  }
+
+  if (flow.phase === 'confirming' && flow.summary) {
+    const isDestructive = pendingAction?.type === 'sell'
+    return (
+      <section className="rounded-xl border border-gray-200 bg-white p-5">
+        <h3 className="text-base font-semibold">Stocks & ETFs</h3>
+        <div className="mt-3">
+          <ConfirmAction
+            summary={flow.summary}
+            variant={isDestructive ? 'destructive' : 'default'}
+            isSubmitting={flow.isSubmitting}
+            error={flow.error}
+            onConfirm={handleConfirm}
+            onCancel={flow.cancel}
+          />
+        </div>
+      </section>
+    )
   }
 
   return (
@@ -397,7 +549,7 @@ function StockSection({ kidId }: { kidId: string }) {
         </span>
       </div>
 
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      {flow.error && <p className="mt-2 text-sm text-red-600">{flow.error}</p>}
 
       {positions.length === 0 ? (
         <p className="mt-2 text-sm text-gray-500">
@@ -451,16 +603,14 @@ function StockSection({ kidId }: { kidId: string }) {
                   className="flex-1 rounded-md border border-gray-300 px-2 py-1 text-sm"
                 />
                 <button
-                  onClick={() => handleSell(pos.ticker, false)}
-                  disabled={submitting}
-                  className="rounded-md bg-gray-600 px-3 py-1 text-xs font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+                  onClick={() => handleRequestSell(pos.ticker, false)}
+                  className="rounded-md bg-gray-600 px-3 py-1 text-xs font-medium text-white hover:bg-gray-700"
                 >
                   Sell
                 </button>
                 <button
-                  onClick={() => handleSell(pos.ticker, true)}
-                  disabled={submitting}
-                  className="rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                  onClick={() => handleRequestSell(pos.ticker, true)}
+                  className="rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700"
                 >
                   Sell All
                 </button>
@@ -491,9 +641,8 @@ function StockSection({ kidId }: { kidId: string }) {
             />
           </div>
           <button
-            onClick={handleBuy}
-            disabled={submitting}
-            className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+            onClick={handleRequestBuy}
+            className="rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700"
           >
             Buy
           </button>
@@ -504,7 +653,7 @@ function StockSection({ kidId }: { kidId: string }) {
 }
 
 // ============================================================
-// Invest Page (combines T13a, T13b, T13c)
+// Invest Page (combines all sections)
 // ============================================================
 
 export default function Invest() {

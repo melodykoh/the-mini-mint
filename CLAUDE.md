@@ -81,6 +81,18 @@ This project uses two complementary tools:
 
 **Note:** Agent Browser requires a dev session running in terminal (`npx agent-browser`).
 
+### Automated QA Account
+QA runs use a dedicated test account (not Melody's production account). Credentials in `.env.test.local`. This account is also valid for the Lego App (shared Supabase project).
+
+| Key | Value |
+|-----|-------|
+| Email | `testuser@familyapps.com` |
+| UUID | `19e4ce84-e500-4d85-a74a-036064fc28e3` (added to `admin_users`) |
+| QA-Alice | Diverse portfolio: cash, MMF, CD, stocks |
+| QA-Bob | Simple saver: cash, MMF only |
+
+**QA discipline:** Only operate on `QA-` prefixed kids during testing. All admins see all kids — Melody sees QA kids, test user sees Aiden/Skylar. Seed script: `scripts/seed-qa-kids.mjs`.
+
 ## What NOT To Do
 - Don't over-engineer the schema
 - Don't add features before the core ledger works

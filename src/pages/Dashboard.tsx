@@ -2,13 +2,7 @@ import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { getKids } from '../lib/kids'
 import { getPortfolioSummary } from '../lib/transactions'
-
-function formatMoney(n: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(n)
-}
+import { formatMoney } from '../lib/format'
 
 function BucketBar({ summary }: { summary: ReturnType<typeof usePortfolio>['data'] }) {
   if (!summary || summary.grand_total === 0) return null
@@ -112,6 +106,12 @@ function KidCard({ kid }: { kid: { id: string; name: string } }) {
           className="flex-1 rounded-lg bg-gray-100 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-200"
         >
           Spend
+        </Link>
+        <Link
+          to={`/kid/${kid.id}/history`}
+          className="flex-1 rounded-lg bg-gray-100 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-200"
+        >
+          History
         </Link>
       </div>
     </div>

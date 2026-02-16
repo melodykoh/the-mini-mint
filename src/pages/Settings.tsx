@@ -5,6 +5,8 @@ import { getKids } from '../lib/kids'
 import { accrueMmfInterest } from '../lib/transactions'
 import { refreshStockPrices } from '../lib/stock-prices'
 import { extractErrorMessage } from '../lib/errors'
+import { ConfirmAction } from '../components/ConfirmAction'
+import { useActionFlow } from '../hooks/useActionFlow'
 
 interface SettingRow {
   key: string
@@ -88,7 +90,7 @@ export default function Settings() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
-  const [accruing, setAccruing] = useState(false)
+  const accrueFlow = useActionFlow()
 
   const { data: settings } = useQuery({
     queryKey: ['settings'],
@@ -166,23 +168,26 @@ export default function Settings() {
     }
   }
 
-  const handleAccrueInterest = async () => {
-    setAccruing(true)
-    setError(null)
-    try {
+  const handleRequestAccrue = () => {
+    const kidNames = (kids ?? []).map((k) => k.name).join(', ')
+    accrueFlow.requestConfirmation({
+      title: 'Accrue MMF Interest',
+      details: [`For all kids: ${kidNames}`],
+      balanceImpact: 'Interest will be credited to each kid\'s MMF balance',
+    })
+  }
+
+  const handleConfirmAccrue = () => {
+    accrueFlow.confirm(async () => {
       const results = []
       for (const kid of kids ?? []) {
         const result = await accrueMmfInterest(kid.id)
         const credited = result?.[0]?.interest_credited ?? 0
         results.push(`${kid.name}: $${credited.toFixed(2)}`)
       }
-      setSuccess(`Interest accrued — ${results.join(', ')}`)
       queryClient.invalidateQueries({ queryKey: ['portfolio'] })
-    } catch (err) {
-      setError(extractErrorMessage(err))
-    } finally {
-      setAccruing(false)
-    }
+      return `Interest accrued — ${results.join(', ')}`
+    })
   }
 
   const lastRefresh = settings?.find(
@@ -275,21 +280,42 @@ export default function Settings() {
         </div>
 
         <div className="rounded-lg border border-gray-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Accrue MMF Interest</p>
-              <p className="text-xs text-gray-500">
-                Credits earned interest for all kids
+          {accrueFlow.phase === 'confirming' && accrueFlow.summary ? (
+            <ConfirmAction
+              summary={accrueFlow.summary}
+              isSubmitting={accrueFlow.isSubmitting}
+              error={accrueFlow.error}
+              onConfirm={handleConfirmAccrue}
+              onCancel={accrueFlow.cancel}
+            />
+          ) : accrueFlow.phase === 'success' ? (
+            <div className="text-center">
+              <p className="text-sm font-medium text-emerald-700">
+                {accrueFlow.result}
               </p>
+              <button
+                onClick={accrueFlow.reset}
+                className="mt-2 text-sm text-blue-600 hover:text-blue-700"
+              >
+                Done
+              </button>
             </div>
-            <button
-              onClick={handleAccrueInterest}
-              disabled={accruing}
-              className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-            >
-              {accruing ? 'Accruing...' : 'Accrue'}
-            </button>
-          </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Accrue MMF Interest</p>
+                <p className="text-xs text-gray-500">
+                  Credits earned interest for all kids
+                </p>
+              </div>
+              <button
+                onClick={handleRequestAccrue}
+                className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              >
+                Accrue
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
