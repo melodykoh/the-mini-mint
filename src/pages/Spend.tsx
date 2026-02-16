@@ -207,6 +207,16 @@ export default function Spend() {
           />
         </div>
 
+        {(!kidId || !note.trim()) && (
+          <p className="text-sm text-gray-400">
+            {!kidId && !note.trim()
+              ? 'Select a kid and describe what it\'s for'
+              : !kidId
+                ? 'Select a kid to continue'
+                : 'Describe what the spending is for'}
+          </p>
+        )}
+
         <button
           type="submit"
           disabled={submitting || !kidId || !note.trim()}

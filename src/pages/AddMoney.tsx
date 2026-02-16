@@ -255,6 +255,16 @@ export default function AddMoney() {
           />
         </div>
 
+        {(!kidId || !source) && (
+          <p className="text-sm text-gray-400">
+            {!kidId && !source
+              ? 'Select a kid and a source to continue'
+              : !kidId
+                ? 'Select a kid to continue'
+                : 'Select a source to continue'}
+          </p>
+        )}
+
         <button
           type="submit"
           disabled={submitting || !kidId || !source}
