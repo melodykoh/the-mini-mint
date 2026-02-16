@@ -1,4 +1,4 @@
-# Family Capital Ledger — Requirements
+# The Mini Mint — Requirements
 
 ## Vision
 

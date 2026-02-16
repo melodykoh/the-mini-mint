@@ -175,7 +175,7 @@ Financial data flows through derived chains. See `LEARNINGS_APPLIED.md` Section 
 
 These must be done by Melody before autonomous execution.
 
-> **Supabase decision (Feb 2026):** FCL shares the **Lego App's Supabase project** (free tier allows only 2 projects; Hanzi Dojo was ruled out due to `kids` table name conflict, enabled signups, and 47+ active migrations). Zero table name conflicts. FCL's regular usage prevents Lego App's inactivity archival warnings. Decision documented in both repos' CLAUDE.md files.
+> **Supabase decision (Feb 2026):** TMM shares the **Lego App's Supabase project** (free tier allows only 2 projects; Hanzi Dojo was ruled out due to `kids` table name conflict, enabled signups, and 47+ active migrations). Zero table name conflicts. TMM's regular usage prevents Lego App's inactivity archival warnings. Decision documented in both repos' CLAUDE.md files.
 
 - [ ] **P1:** ~~Create Supabase project~~ → **Use Lego App's existing Supabase project** (already created)
 - [ ] **P2: Get Supabase credentials** — copy from Lego App's env: project URL + anon key + service role key

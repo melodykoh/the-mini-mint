@@ -1,7 +1,7 @@
-# Family Capital Ledger: Learnings Applied from Hanzi Dojo
+# The Mini Mint: Learnings Applied from Hanzi Dojo
 
 **Date:** 2026-02-15
-**Scope:** Analysis of all 6 learning documents from Hanzi Dojo and their applicability to Family Capital Ledger Phase A Plan
+**Scope:** Analysis of all 6 learning documents from Hanzi Dojo and their applicability to The Mini Mint Phase A Plan
 
 ---
 
@@ -26,7 +26,7 @@
 
 **Problem:** RETURNS TABLE creates OUT parameters that conflict with bare column names in WHERE clauses. Bug was introduced twice in Hanzi Dojo (Issue #40, reappeared in issue #42).
 
-**Why It's Critical for FCL:**
+**Why It's Critical for TMM:**
 - Phase A has **8 PL/pgSQL RPCs** that use RETURNS TABLE (T4-T8, T14 spend functions)
 - **All write operations must be atomic** — RPC failures cascade to frontend
 - The bug is **silent** — queries run but return wrong results without obvious error
@@ -89,7 +89,7 @@ $$ LANGUAGE plpgsql SECURITY INVOKER;
 
 **Problem:** Initial investigation found 11 affected records; actual scope was 68 (6x undercount). Root cause: trusted documentation instead of querying actual data.
 
-**Why It Matters for FCL:**
+**Why It Matters for TMM:**
 - Phase A includes **seed data** (kids, settings with hardcoded rates)
 - Future migrations will need to **validate data integrity** (transactions balance per kid, no orphaned positions)
 - **Data assumptions** (e.g., "we'll never have > 5 stock positions per kid") need verification before writing constraints
@@ -137,7 +137,7 @@ UNIQUE (kid_id, ticker);
 
 **Problem:** When modifying existing RPC functions for a secondary purpose (security hardening, refactoring), previous bug fixes were silently lost. Example: Migration 007 fixed traditional character lookup (OR trad = search_char), but Migration 017 (for security) copy-pasted from older version, losing the fix. Gap between fix and regression: 7 weeks.
 
-**Why It Matters for FCL:**
+**Why It Matters for TMM:**
 - Phase A creates **15 RPC functions** across T3-T8, T14
 - These will be **modified in future phases** (optimizations, security hardening, feature additions)
 - A regression in `deposit_to_cash` could silently allow overdrafts
@@ -190,7 +190,7 @@ UNIQUE (kid_id, ticker);
 
 **Problem:** `readings.context_words` contained simplified Chinese while `word_pairs.word` used traditional Chinese. String comparison failed silently. Root cause: data was inherited from dictionary at add time; later migrations fixed the source but not downstream copies.
 
-**Why It Matters for FCL:**
+**Why It Matters for TMM:**
 - Schema has **data inheritance flows:**
   - `settings` (rates) → derived into transactions
   - `stock_prices` → derived into `stock_positions` (cost basis, gain/loss)
@@ -300,19 +300,19 @@ If Phase B includes kid portfolio view or mini-investments:
 
 ### Application to Phase A Plan
 
-**Create `/docs/solutions/` directory in FCL repo:**
+**Create `/docs/solutions/` directory in TMM repo:**
 
 ```bash
 docs/
 └── solutions/
     ├── README.md  # Use template from Hanzi Dojo
     ├── database-issues/
-    │   └── (created as FCL bugs are discovered)
+    │   └── (created as TMM bugs are discovered)
     └── process-learnings/
         └── (created as development process issues emerge)
 ```
 
-**Template for FCL bugs:**
+**Template for TMM bugs:**
 
 ```markdown
 ---
@@ -372,7 +372,7 @@ How to avoid this in the future (checklists, patterns, etc.)
 
 ### 5. Create `/docs/solutions/` Directory
 
-**Location:** `Family Capital Ledger/docs/solutions/`
+**Location:** `The Mini Mint/docs/solutions/`
 
 **Content:** README.md template + placeholder for future bugs
 

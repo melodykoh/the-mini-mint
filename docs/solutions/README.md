@@ -1,6 +1,6 @@
 # Solutions Directory
 
-Bug documentation and prevention patterns for Family Capital Ledger.
+Bug documentation and prevention patterns for The Mini Mint.
 Template adopted from Hanzi Dojo.
 
 ## Structure

@@ -1,4 +1,4 @@
--- Family Capital Ledger: Initial Schema
+-- The Mini Mint: Initial Schema
 -- Applied to shared Supabase project (also hosts Lego App: creations, photos tables)
 -- DO NOT modify Lego App tables.
 --
@@ -226,7 +226,7 @@ CREATE TRIGGER trg_stock_position_updated
 -- 7. ROW LEVEL SECURITY
 -- ============================================================
 
--- Enable RLS on all FCL tables
+-- Enable RLS on all TMM tables
 ALTER TABLE admin_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE kids ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;

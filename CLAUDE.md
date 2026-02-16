@@ -1,4 +1,4 @@
-# Family Capital Ledger
+# The Mini Mint
 
 ## What This Is
 A synthetic banking and investment app for teaching Aiden and Skylar money management. Parent-administered, kid-viewable. No real accounts, no cards, no tax implications.
@@ -28,11 +28,11 @@ A synthetic banking and investment app for teaching Aiden and Skylar money manag
 
 ## Shared Supabase Project (IMPORTANT)
 
-**FCL shares the Lego App's Supabase project.** This is documented in both repos.
+**TMM shares the Lego App's Supabase project.** This is documented in both repos.
 
-**Why:** Supabase free tier allows only 2 projects (Hanzi Dojo + Lego App). Hanzi Dojo was ruled out: `kids` table name conflict, signups must stay enabled (other families use it), 47+ active migrations create collision risk. Lego App has 2 tables (`creations`, `photos`), zero conflicts, and benefits from FCL keeping the project active.
+**Why:** Supabase free tier allows only 2 projects (Hanzi Dojo + Lego App). Hanzi Dojo was ruled out: `kids` table name conflict, signups must stay enabled (other families use it), 47+ active migrations create collision risk. Lego App has 2 tables (`creations`, `photos`), zero conflicts, and benefits from TMM keeping the project active.
 
-**Implications for FCL development:**
+**Implications for TMM development:**
 - Supabase credentials (URL, anon key, service role key) are the same as Lego App's
 - Auth users are shared — Melody's account works for both apps
 - **Never drop or modify** Lego App tables (`creations`, `photos`)
@@ -56,6 +56,10 @@ A synthetic banking and investment app for teaching Aiden and Skylar money manag
 - **Don't modify RPCs without reading the entire function** — the alias pattern is always intentional
 - **Don't skip RPC testing** — data queries can pass while RPC silently returns wrong results
 - **Don't write ad-hoc SQL from memory** — always verify column names, trigger names, and table structure against `001_initial_schema.sql` before giving SQL to run. Three errors in a row (wrong column name, wrong trigger name, wrong trigger name again) is unacceptable. Read the schema first, write the SQL second.
+- **Don't use `instanceof Error` for Supabase errors** — PostgrestError is a plain object, not an Error subclass. Use `extractErrorMessage()` from `src/lib/errors.ts`.
+- **Don't design RPCs without considering UI display needs** — ask "what does the UI need to show?" before writing the RPC. If the display needs context beyond core fields, add a metadata parameter from day one.
+- **Don't use `?? 'fallback'` for loading states** — `kids?.find()?.name ?? 'Unknown'` conflates "loading" with "missing." Check `isLoading` → show skeleton. Text fallbacks only for genuinely absent data.
+- **Don't forget secondary query invalidation** — after mutations, grep for ALL `useQuery` keys related to the mutated entity, not just the primary one.
 
 ## QA Strategy
 

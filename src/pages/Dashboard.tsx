@@ -126,7 +126,7 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Family Capital Ledger</h1>
+      <h1 className="text-2xl font-bold">The Mini Mint</h1>
       <p className="mt-1 text-sm text-gray-500">Portfolio overview</p>
 
       {isLoading && <p className="mt-4 text-gray-400">Loading...</p>}

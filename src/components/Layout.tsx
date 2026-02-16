@@ -20,7 +20,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <div className="mx-auto max-w-4xl px-4">
           <div className="flex h-14 items-center justify-between">
             <Link to="/" className="text-lg font-bold text-gray-900">
-              FCL
+              Mini Mint
             </Link>
             <div className="flex items-center gap-1 overflow-x-auto">
               {NAV_ITEMS.map((item) => (
