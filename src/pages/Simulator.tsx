@@ -1,14 +1,18 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import {
   simulateGrowth,
   getHistoricalStockReturns,
+  getPerformanceSummary,
   getSimulatorSettings,
   type SimulationResult,
   type StockReturn,
 } from '../lib/simulator'
-import { getTrackedTickers } from '../lib/stock-prices'
+import { getTrackedTickers, backfillStockHistory } from '../lib/stock-prices'
+import { supabase } from '../lib/supabase'
 import { formatMoney } from '../lib/format'
+import { extractErrorMessage } from '../lib/errors'
 
 const HORIZONS = [
   { label: '3 mo', months: 3 },
@@ -28,6 +32,261 @@ function gainColor(n: number): string {
   if (n < 0) return 'text-red-600'
   return 'text-gray-500'
 }
+
+// ============================================================
+// Stock Explorer Component
+// ============================================================
+
+function StockExplorer({
+  months,
+  parsedAmount,
+}: {
+  months: number
+  parsedAmount: number
+}) {
+  const [tickerInput, setTickerInput] = useState('')
+  const [activeTicker, setActiveTicker] = useState<string | null>(null)
+  const [explorerError, setExplorerError] = useState<string | null>(null)
+
+  // Mutation for backfilling price data
+  const backfillMutation = useMutation({
+    mutationFn: async (ticker: string) => {
+      // Check if sufficient data already exists (need ~100+ rows for meaningful analysis).
+      // A few rows from daily refresh don't count — we need the 5-year backfill.
+      const { count, error: countError } = await supabase
+        .from('stock_prices')
+        .select('*', { count: 'exact', head: true })
+        .eq('ticker', ticker)
+
+      if (countError) throw countError
+
+      const MIN_ROWS_FOR_ANALYSIS = 100
+      if (count && count >= MIN_ROWS_FOR_ANALYSIS) {
+        return { alreadyExists: true }
+      }
+
+      // Backfill (runs even if a few rows exist from daily refresh)
+      const result = await backfillStockHistory([ticker])
+      if (result.failed?.length > 0) {
+        throw new Error(result.failed[0].error)
+      }
+      // "skipped" means the API returned no values — treat as invalid ticker
+      if (result.rows_upserted === 0) {
+        throw new Error('no_data')
+      }
+      return { alreadyExists: false, result }
+    },
+    onSuccess: (_data, ticker) => {
+      setActiveTicker(ticker)
+      setExplorerError(null)
+    },
+    onError: (err: unknown) => {
+      setActiveTicker(null)
+      const msg = extractErrorMessage(err).toLowerCase()
+      const isRateLimit = msg.includes('rate') || msg.includes('limit') || msg.includes('429')
+      setExplorerError(isRateLimit
+        ? 'Price data service is busy. Wait a moment and try again.'
+        : `Couldn't find price data for ${tickerInput.toUpperCase()}. Check the ticker symbol.`)
+    },
+  })
+
+  const handleLookUp = () => {
+    const ticker = tickerInput.trim().toUpperCase()
+    if (!ticker) return
+    setExplorerError(null)
+    backfillMutation.mutate(ticker)
+  }
+
+  // Performance summary (not tied to horizon/amount)
+  const { data: perfSummary } = useQuery({
+    queryKey: ['perf-summary', activeTicker],
+    queryFn: () => getPerformanceSummary(activeTicker!),
+    enabled: !!activeTicker,
+  })
+
+  // Simulation results (tied to horizon/amount)
+  const { data: explorerReturns, isLoading: explorerLoading } = useQuery({
+    queryKey: ['explorer-returns', activeTicker, months, parsedAmount],
+    queryFn: () => getHistoricalStockReturns(activeTicker!, months, parsedAmount),
+    enabled: !!activeTicker && parsedAmount > 0,
+  })
+
+  // Kids for "Buy for" links
+  const { data: kids } = useQuery({
+    queryKey: ['simulator', 'kids'],
+    queryFn: async () => {
+      const { data } = await supabase.from('kids').select('id, name').order('name')
+      return data ?? []
+    },
+    enabled: !!activeTicker,
+  })
+
+  const nonQaKids = (kids ?? []).filter((k) => !k.name.startsWith('QA-'))
+
+  return (
+    <div className="mt-8">
+      <h2 className="text-lg font-semibold">Explore a Stock</h2>
+
+      {/* Ticker input */}
+      <div className="mt-3 flex gap-2">
+        <input
+          type="text"
+          value={tickerInput}
+          onChange={(e) => setTickerInput(e.target.value.toUpperCase())}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleLookUp() }}
+          placeholder="Ticker (e.g., NVDA)"
+          maxLength={10}
+          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm uppercase shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+        />
+        <button
+          onClick={handleLookUp}
+          disabled={!tickerInput.trim() || backfillMutation.isPending}
+          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          Look Up
+        </button>
+      </div>
+
+      {/* Loading state */}
+      {backfillMutation.isPending && (
+        <div className="mt-3 flex items-center gap-2 text-sm text-gray-500">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+          Fetching price history for {tickerInput.toUpperCase()}...
+        </div>
+      )}
+
+      {/* Error state */}
+      {explorerError && (
+        <p className="mt-3 text-sm text-red-600">{explorerError}</p>
+      )}
+
+      {/* Results */}
+      {activeTicker && !backfillMutation.isPending && (
+        <div className="mt-4 space-y-4">
+          {/* Performance summary */}
+          {perfSummary && perfSummary.length > 0 && (
+            <div className="rounded-lg border border-gray-200 px-4 py-3">
+              <p className="text-sm font-semibold">{activeTicker} — Historical Returns</p>
+              <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+                {perfSummary.map((p) => (
+                  <div key={p.label}>
+                    <p className="text-xs text-gray-500">{p.label}</p>
+                    {p.pct !== null ? (
+                      <p className={`text-sm font-medium ${gainColor(p.pct)}`}>
+                        {formatPct(p.pct)}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-gray-400">N/A</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Simulation results */}
+          {parsedAmount > 0 && (
+            <>
+              {explorerLoading ? (
+                <p className="text-sm text-gray-400">Calculating projections...</p>
+              ) : explorerReturns ? (
+                <div className="rounded-lg border border-gray-200 px-4 py-3">
+                  <p className="text-sm font-semibold">
+                    {activeTicker} — What would {formatMoney(parsedAmount)} become?
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Worst and best scenarios based on trailing 5-year historicals
+                  </p>
+
+                  {explorerReturns.insufficientHistory ? (
+                    <p className="mt-2 text-xs text-gray-500">
+                      {explorerReturns.insufficientHistory}
+                    </p>
+                  ) : (
+                    <>
+                      <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+                        {explorerReturns.worst && (
+                          <div>
+                            <p className="text-xs text-gray-500">Worst case</p>
+                            <p className="text-sm font-medium text-red-600">
+                              {formatMoney(explorerReturns.worst.amount)}
+                            </p>
+                            <p className="text-xs text-red-500">
+                              {formatPct(explorerReturns.worst.pct)}
+                            </p>
+                          </div>
+                        )}
+                        {explorerReturns.actual && (
+                          <div>
+                            <p className="text-xs text-gray-500">Actual (past)</p>
+                            <p className={`text-sm font-medium ${gainColor(explorerReturns.actual.pct)}`}>
+                              {formatMoney(explorerReturns.actual.amount)}
+                            </p>
+                            <p className={`text-xs ${gainColor(explorerReturns.actual.pct)}`}>
+                              {formatPct(explorerReturns.actual.pct)}
+                            </p>
+                          </div>
+                        )}
+                        {explorerReturns.best && (
+                          <div>
+                            <p className="text-xs text-gray-500">Best case</p>
+                            <p className="text-sm font-medium text-emerald-600">
+                              {formatMoney(explorerReturns.best.amount)}
+                            </p>
+                            <p className="text-xs text-emerald-500">
+                              {formatPct(explorerReturns.best.pct)}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Kid-friendly summary */}
+                      {explorerReturns.worst && explorerReturns.best && (
+                        <>
+                          <p className="mt-3 text-xs text-gray-600 leading-relaxed">
+                            In the worst {months >= 12 && months % 12 === 0 ? `${months / 12}-year` : `${months}-month`} stretch,
+                            your {formatMoney(parsedAmount)} would have become {formatMoney(explorerReturns.worst.amount)}.
+                            In the best {months >= 12 && months % 12 === 0 ? `${months / 12}-year` : `${months}-month`} stretch,
+                            it could have become {formatMoney(explorerReturns.best.amount)}.
+                          </p>
+                          {explorerReturns.best.pct - explorerReturns.worst.pct < 20 && months >= 36 && (
+                            <p className="mt-1.5 text-xs text-blue-600/70 leading-relaxed">
+                              💡 Notice the small gap between worst and best? Longer time horizons
+                              smooth out the swings — that's why patience pays off in investing.
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+              ) : null}
+            </>
+          )}
+
+          {/* Buy for kid links */}
+          {nonQaKids.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {nonQaKids.map((kid) => (
+                <Link
+                  key={kid.id}
+                  to={`/kid/${kid.id}/invest`}
+                  className="inline-flex items-center rounded-md bg-purple-50 px-3 py-2 text-sm font-medium text-purple-700 hover:bg-purple-100"
+                >
+                  Buy {activeTicker} for {kid.name}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================================
+// Main Simulator Page
+// ============================================================
 
 export default function Simulator() {
   const [amount, setAmount] = useState('100')
@@ -98,7 +357,7 @@ export default function Simulator() {
         <label className="block text-sm font-medium text-gray-700">
           Time horizon
         </label>
-        <div className="mt-2 flex gap-2">
+        <div className="mt-2 flex flex-wrap gap-2">
           {HORIZONS.map((h) => (
             <button
               key={h.months}
@@ -145,10 +404,13 @@ export default function Simulator() {
         </div>
       )}
 
-      {/* Stock results */}
+      {/* Stock explorer */}
+      <StockExplorer months={months} parsedAmount={parsedAmount} />
+
+      {/* Owned stock results */}
       {tickers && tickers.length > 0 && (
         <div className="mt-8">
-          <h2 className="text-lg font-semibold">Stocks</h2>
+          <h2 className="text-lg font-semibold">Your Stocks</h2>
           <p className="text-xs text-gray-500">
             Based on past performance — not guaranteed
           </p>

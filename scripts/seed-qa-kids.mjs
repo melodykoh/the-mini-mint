@@ -84,9 +84,14 @@ async function main() {
   }
 
   // Create two QA kids
+  const QA_HOUSEHOLD_ID = 'aaaaaaaa-0000-0000-0000-000000000002'
+
   const { data: kids, error: kidsErr } = await supabase
     .from('kids')
-    .insert([{ name: 'QA-Alice' }, { name: 'QA-Bob' }])
+    .insert([
+      { name: 'QA-Alice', household_id: QA_HOUSEHOLD_ID },
+      { name: 'QA-Bob', household_id: QA_HOUSEHOLD_ID },
+    ])
     .select('id, name')
 
   if (kidsErr) throw kidsErr

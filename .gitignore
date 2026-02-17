@@ -29,3 +29,6 @@ dist-ssr
 # Supabase CLI temp files
 supabase/.temp/
 .vercel
+
+# PR review artifacts
+docs/reviews/
