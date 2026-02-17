@@ -47,6 +47,7 @@ async function getPerformanceSummary(ticker: string): Promise<PerfPeriod[]> {
     .select('date, close_price')
     .eq('ticker', ticker)
     .order('date', { ascending: true })
+    .limit(5000)
 
   if (error || !prices || prices.length < 2) return []
 
