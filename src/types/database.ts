@@ -18,6 +18,7 @@ export type CdStatus = 'active' | 'matured' | 'broken'
 export interface Kid {
   id: string
   name: string
+  household_id: string
   created_at: string
 }
 
@@ -70,5 +71,6 @@ export interface Setting {
 
 export interface AdminUser {
   user_id: string
+  household_id: string
   created_at: string
 }
