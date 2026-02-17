@@ -283,6 +283,9 @@ function StockExplorer({
                   <p className="text-sm font-semibold">
                     {activeTicker} — What would {formatMoney(parsedAmount)} become?
                   </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Worst and best scenarios based on trailing 5-year historicals
+                  </p>
 
                   {explorerReturns.insufficientHistory ? (
                     <p className="mt-2 text-xs text-gray-500">
