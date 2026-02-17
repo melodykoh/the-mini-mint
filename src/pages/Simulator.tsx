@@ -117,7 +117,8 @@ function StockExplorer({
   // Mutation for backfilling price data
   const backfillMutation = useMutation({
     mutationFn: async (ticker: string) => {
-      // Check if data already exists
+      // Check if sufficient data already exists (need ~100+ rows for meaningful analysis).
+      // A few rows from daily refresh don't count — we need the 5-year backfill.
       const { count, error: countError } = await supabase
         .from('stock_prices')
         .select('*', { count: 'exact', head: true })
@@ -125,18 +126,18 @@ function StockExplorer({
 
       if (countError) throw countError
 
-      if (count && count > 0) {
-        // Data already exists, skip backfill
+      const MIN_ROWS_FOR_ANALYSIS = 100
+      if (count && count >= MIN_ROWS_FOR_ANALYSIS) {
         return { alreadyExists: true }
       }
 
-      // Backfill
+      // Backfill (runs even if a few rows exist from daily refresh)
       const result = await backfillStockHistory([ticker])
-      // Check if the ticker actually got data
       if (result.failed?.length > 0) {
         throw new Error(result.failed[0].error)
       }
-      if (result.rows_upserted === 0 && result.skipped?.length === 0) {
+      // "skipped" means the API returned no values — treat as invalid ticker
+      if (result.rows_upserted === 0) {
         throw new Error('no_data')
       }
       return { alreadyExists: false, result }
