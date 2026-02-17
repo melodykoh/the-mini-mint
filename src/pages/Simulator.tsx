@@ -331,12 +331,20 @@ function StockExplorer({
 
                       {/* Kid-friendly summary */}
                       {explorerReturns.worst && explorerReturns.best && (
-                        <p className="mt-3 text-xs text-gray-600 leading-relaxed">
-                          In the worst {months >= 12 ? `${months / 12}-year` : `${months}-month`} stretch,
-                          your {formatMoney(parsedAmount)} would have become {formatMoney(explorerReturns.worst.amount)}.
-                          In the best {months >= 12 ? `${months / 12}-year` : `${months}-month`} stretch,
-                          it could have become {formatMoney(explorerReturns.best.amount)}.
-                        </p>
+                        <>
+                          <p className="mt-3 text-xs text-gray-600 leading-relaxed">
+                            In the worst {months >= 12 ? `${months / 12}-year` : `${months}-month`} stretch,
+                            your {formatMoney(parsedAmount)} would have become {formatMoney(explorerReturns.worst.amount)}.
+                            In the best {months >= 12 ? `${months / 12}-year` : `${months}-month`} stretch,
+                            it could have become {formatMoney(explorerReturns.best.amount)}.
+                          </p>
+                          {explorerReturns.best.pct - explorerReturns.worst.pct < 20 && months >= 36 && (
+                            <p className="mt-1.5 text-xs text-blue-600/70 leading-relaxed">
+                              💡 Notice the small gap between worst and best? Longer time horizons
+                              smooth out the swings — that's why patience pays off in investing.
+                            </p>
+                          )}
+                        </>
                       )}
                     </>
                   )}
