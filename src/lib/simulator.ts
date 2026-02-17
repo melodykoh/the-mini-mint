@@ -94,17 +94,26 @@ export async function getHistoricalStockReturns(
   months: number,
   amount: number,
 ): Promise<StockReturn> {
-  // Fetch all historical prices for this ticker, sorted ascending
-  // PostgREST defaults to 1000 rows — 5 years of daily data is ~1260 rows.
-  // Explicit limit ensures we get the full history.
-  const { data: prices, error } = await supabase
-    .from('stock_prices')
-    .select('date, close_price')
-    .eq('ticker', ticker)
-    .order('date', { ascending: true })
-    .limit(5000)
+  // PostgREST caps at 1000 rows per request. 5 years of daily data is ~1260 rows.
+  // Paginate using .range() to fetch all rows.
+  const PAGE_SIZE = 1000
+  let prices: { date: string; close_price: number }[] = []
+  let offset = 0
 
-  if (error) throw error
+  while (true) {
+    const { data, error: pageError } = await supabase
+      .from('stock_prices')
+      .select('date, close_price')
+      .eq('ticker', ticker)
+      .order('date', { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1)
+
+    if (pageError) throw pageError
+    if (!data || data.length === 0) break
+    prices = prices.concat(data)
+    if (data.length < PAGE_SIZE) break
+    offset += PAGE_SIZE
+  }
   if (!prices || prices.length < 2) {
     return {
       ticker,

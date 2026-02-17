@@ -42,61 +42,80 @@ interface PerfPeriod {
 }
 
 async function getPerformanceSummary(ticker: string): Promise<PerfPeriod[]> {
-  const { data: prices, error } = await supabase
+  // Fetch only the latest price (most recent row)
+  const { data: latestRows, error: latestErr } = await supabase
     .from('stock_prices')
     .select('date, close_price')
     .eq('ticker', ticker)
-    .order('date', { ascending: true })
-    .limit(5000)
+    .order('date', { ascending: false })
+    .limit(1)
 
-  if (error || !prices || prices.length < 2) return []
+  if (latestErr || !latestRows || latestRows.length === 0) return []
 
-  const latest = prices[prices.length - 1]
-  const latestPrice = Number(latest.close_price)
-  const latestDate = new Date(latest.date)
+  const latestPrice = Number(latestRows[0].close_price)
+  const latestDate = new Date(latestRows[0].date)
 
-  const findClosest = (target: Date): number | null => {
-    const targetStr = target.toISOString().split('T')[0]
-    // Binary search for closest date
-    let lo = 0
-    let hi = prices.length - 1
-    while (lo < hi) {
-      const mid = Math.floor((lo + hi) / 2)
-      if (prices[mid].date < targetStr) lo = mid + 1
-      else hi = mid
-    }
-    if (lo > 0) {
-      const diffLo = Math.abs(new Date(prices[lo].date).getTime() - target.getTime())
-      const diffPrev = Math.abs(new Date(prices[lo - 1].date).getTime() - target.getTime())
-      if (diffPrev < diffLo) lo = lo - 1
-    }
-    // If the closest date is more than 30 days off, data is insufficient
-    const diff = Math.abs(new Date(prices[lo].date).getTime() - target.getTime())
-    if (diff > 30 * 24 * 60 * 60 * 1000) return null
-    return lo
-  }
-
-  const calcReturn = (targetDate: Date): number | null => {
-    const idx = findClosest(targetDate)
-    if (idx === null) return null
-    const pastPrice = Number(prices[idx].close_price)
-    if (pastPrice === 0) return null
-    return ((latestPrice / pastPrice) - 1) * 100
-  }
-
-  // YTD: Jan 1 of current year
+  // Build target dates
   const ytdDate = new Date(latestDate.getFullYear(), 0, 1)
-  // 12 months ago
   const oneYrDate = new Date(latestDate)
   oneYrDate.setMonth(oneYrDate.getMonth() - 12)
-  // 5 years ago
   const fiveYrDate = new Date(latestDate)
   fiveYrDate.setFullYear(fiveYrDate.getFullYear() - 5)
 
+  // For each target date, fetch the closest price (one row before + one row after)
+  const fetchClosestPrice = async (target: Date): Promise<number | null> => {
+    const targetStr = target.toISOString().split('T')[0]
+
+    // Get the closest row on or after the target
+    const { data: after } = await supabase
+      .from('stock_prices')
+      .select('date, close_price')
+      .eq('ticker', ticker)
+      .gte('date', targetStr)
+      .order('date', { ascending: true })
+      .limit(1)
+
+    // Get the closest row before the target
+    const { data: before } = await supabase
+      .from('stock_prices')
+      .select('date, close_price')
+      .eq('ticker', ticker)
+      .lt('date', targetStr)
+      .order('date', { ascending: false })
+      .limit(1)
+
+    // Pick whichever is closer
+    const candidates = [...(before ?? []), ...(after ?? [])]
+    if (candidates.length === 0) return null
+
+    let best = candidates[0]
+    let bestDiff = Math.abs(new Date(best.date).getTime() - target.getTime())
+    for (const c of candidates) {
+      const diff = Math.abs(new Date(c.date).getTime() - target.getTime())
+      if (diff < bestDiff) { best = c; bestDiff = diff }
+    }
+
+    // If closest date is more than 30 days off, data is insufficient
+    if (bestDiff > 30 * 24 * 60 * 60 * 1000) return null
+    return Number(best.close_price)
+  }
+
+  // Fetch all three in parallel
+  const [ytdPrice, oneYrPrice, fiveYrPrice] = await Promise.all([
+    fetchClosestPrice(ytdDate),
+    fetchClosestPrice(oneYrDate),
+    fetchClosestPrice(fiveYrDate),
+  ])
+
+  const calcReturn = (pastPrice: number | null): number | null => {
+    if (pastPrice === null || pastPrice === 0) return null
+    return ((latestPrice / pastPrice) - 1) * 100
+  }
+
   return [
-    { label: 'YTD', pct: calcReturn(ytdDate) },
-    { label: 'Last 12mo', pct: calcReturn(oneYrDate) },
-    { label: 'Last 5yr', pct: calcReturn(fiveYrDate) },
+    { label: 'YTD', pct: calcReturn(ytdPrice) },
+    { label: 'Last 12mo', pct: calcReturn(oneYrPrice) },
+    { label: 'Last 5yr', pct: calcReturn(fiveYrPrice) },
   ]
 }
 
