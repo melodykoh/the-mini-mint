@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import {
   simulateGrowth,
   getHistoricalStockReturns,
+  getPerformanceSummary,
   getSimulatorSettings,
   type SimulationResult,
   type StockReturn,
@@ -30,93 +31,6 @@ function gainColor(n: number): string {
   if (n > 0) return 'text-emerald-600'
   if (n < 0) return 'text-red-600'
   return 'text-gray-500'
-}
-
-// ============================================================
-// Performance Summary — YTD, 1yr, 5yr returns from price data
-// ============================================================
-
-interface PerfPeriod {
-  label: string
-  pct: number | null
-}
-
-async function getPerformanceSummary(ticker: string): Promise<PerfPeriod[]> {
-  // Fetch only the latest price (most recent row)
-  const { data: latestRows, error: latestErr } = await supabase
-    .from('stock_prices')
-    .select('date, close_price')
-    .eq('ticker', ticker)
-    .order('date', { ascending: false })
-    .limit(1)
-
-  if (latestErr || !latestRows || latestRows.length === 0) return []
-
-  const latestPrice = Number(latestRows[0].close_price)
-  const latestDate = new Date(latestRows[0].date)
-
-  // Build target dates
-  const ytdDate = new Date(latestDate.getFullYear(), 0, 1)
-  const oneYrDate = new Date(latestDate)
-  oneYrDate.setMonth(oneYrDate.getMonth() - 12)
-  const fiveYrDate = new Date(latestDate)
-  fiveYrDate.setFullYear(fiveYrDate.getFullYear() - 5)
-
-  // For each target date, fetch the closest price (one row before + one row after)
-  const fetchClosestPrice = async (target: Date): Promise<number | null> => {
-    const targetStr = target.toISOString().split('T')[0]
-
-    // Get the closest row on or after the target
-    const { data: after } = await supabase
-      .from('stock_prices')
-      .select('date, close_price')
-      .eq('ticker', ticker)
-      .gte('date', targetStr)
-      .order('date', { ascending: true })
-      .limit(1)
-
-    // Get the closest row before the target
-    const { data: before } = await supabase
-      .from('stock_prices')
-      .select('date, close_price')
-      .eq('ticker', ticker)
-      .lt('date', targetStr)
-      .order('date', { ascending: false })
-      .limit(1)
-
-    // Pick whichever is closer
-    const candidates = [...(before ?? []), ...(after ?? [])]
-    if (candidates.length === 0) return null
-
-    let best = candidates[0]
-    let bestDiff = Math.abs(new Date(best.date).getTime() - target.getTime())
-    for (const c of candidates) {
-      const diff = Math.abs(new Date(c.date).getTime() - target.getTime())
-      if (diff < bestDiff) { best = c; bestDiff = diff }
-    }
-
-    // If closest date is more than 30 days off, data is insufficient
-    if (bestDiff > 30 * 24 * 60 * 60 * 1000) return null
-    return Number(best.close_price)
-  }
-
-  // Fetch all three in parallel
-  const [ytdPrice, oneYrPrice, fiveYrPrice] = await Promise.all([
-    fetchClosestPrice(ytdDate),
-    fetchClosestPrice(oneYrDate),
-    fetchClosestPrice(fiveYrDate),
-  ])
-
-  const calcReturn = (pastPrice: number | null): number | null => {
-    if (pastPrice === null || pastPrice === 0) return null
-    return ((latestPrice / pastPrice) - 1) * 100
-  }
-
-  return [
-    { label: 'YTD', pct: calcReturn(ytdPrice) },
-    { label: 'Last 12mo', pct: calcReturn(oneYrPrice) },
-    { label: 'Last 5yr', pct: calcReturn(fiveYrPrice) },
-  ]
 }
 
 // ============================================================
@@ -168,14 +82,11 @@ function StockExplorer({
     },
     onError: (err: unknown) => {
       setActiveTicker(null)
-      const msg = extractErrorMessage(err)
-      if (msg === 'no_data' || msg.toLowerCase().includes('not found') || msg.toLowerCase().includes('no data')) {
-        setExplorerError(`Couldn't find price data for ${tickerInput.toUpperCase()}. Check the ticker symbol.`)
-      } else if (msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('limit') || msg.toLowerCase().includes('429')) {
-        setExplorerError('Price data service is busy. Wait a moment and try again.')
-      } else {
-        setExplorerError(`Couldn't find price data for ${tickerInput.toUpperCase()}. Check the ticker symbol.`)
-      }
+      const msg = extractErrorMessage(err).toLowerCase()
+      const isRateLimit = msg.includes('rate') || msg.includes('limit') || msg.includes('429')
+      setExplorerError(isRateLimit
+        ? 'Price data service is busy. Wait a moment and try again.'
+        : `Couldn't find price data for ${tickerInput.toUpperCase()}. Check the ticker symbol.`)
     },
   })
 
@@ -202,7 +113,7 @@ function StockExplorer({
 
   // Kids for "Buy for" links
   const { data: kids } = useQuery({
-    queryKey: ['kids'],
+    queryKey: ['simulator', 'kids'],
     queryFn: async () => {
       const { data } = await supabase.from('kids').select('id, name').order('name')
       return data ?? []
@@ -333,9 +244,9 @@ function StockExplorer({
                       {explorerReturns.worst && explorerReturns.best && (
                         <>
                           <p className="mt-3 text-xs text-gray-600 leading-relaxed">
-                            In the worst {months >= 12 ? `${months / 12}-year` : `${months}-month`} stretch,
+                            In the worst {months >= 12 && months % 12 === 0 ? `${months / 12}-year` : `${months}-month`} stretch,
                             your {formatMoney(parsedAmount)} would have become {formatMoney(explorerReturns.worst.amount)}.
-                            In the best {months >= 12 ? `${months / 12}-year` : `${months}-month`} stretch,
+                            In the best {months >= 12 && months % 12 === 0 ? `${months / 12}-year` : `${months}-month`} stretch,
                             it could have become {formatMoney(explorerReturns.best.amount)}.
                           </p>
                           {explorerReturns.best.pct - explorerReturns.worst.pct < 20 && months >= 36 && (

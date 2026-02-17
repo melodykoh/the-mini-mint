@@ -94,27 +94,8 @@ export async function getHistoricalStockReturns(
   months: number,
   amount: number,
 ): Promise<StockReturn> {
-  // PostgREST caps at 1000 rows per request. 5 years of daily data is ~1260 rows.
-  // Paginate using .range() to fetch all rows.
-  const PAGE_SIZE = 1000
-  let prices: { date: string; close_price: number }[] = []
-  let offset = 0
-
-  while (true) {
-    const { data, error: pageError } = await supabase
-      .from('stock_prices')
-      .select('date, close_price')
-      .eq('ticker', ticker)
-      .order('date', { ascending: true })
-      .range(offset, offset + PAGE_SIZE - 1)
-
-    if (pageError) throw pageError
-    if (!data || data.length === 0) break
-    prices = prices.concat(data)
-    if (data.length < PAGE_SIZE) break
-    offset += PAGE_SIZE
-  }
-  if (!prices || prices.length < 2) {
+  const prices = await fetchAllPrices(ticker)
+  if (prices.length < 2) {
     return {
       ticker,
       actual: null,
@@ -214,6 +195,50 @@ export async function getHistoricalStockReturns(
 }
 
 // ============================================================
+// Performance summary — YTD, 1yr, 5yr from price data
+// ============================================================
+
+export interface PerfPeriod {
+  label: string
+  pct: number | null
+}
+
+export async function getPerformanceSummary(ticker: string): Promise<PerfPeriod[]> {
+  // Reuse the same pagination logic as getHistoricalStockReturns
+  // to fetch all prices in 2 pages instead of 7 targeted queries.
+  const prices = await fetchAllPrices(ticker)
+  if (prices.length === 0) return []
+
+  const latest = prices[prices.length - 1]
+  const latestPrice = Number(latest.close_price)
+  const latestDate = new Date(latest.date)
+
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
+
+  const calcReturn = (targetDate: Date): number | null => {
+    const targetStr = targetDate.toISOString().split('T')[0]
+    const idx = findClosestDateIndex(prices, targetStr)
+    const diff = Math.abs(new Date(prices[idx].date).getTime() - targetDate.getTime())
+    if (diff > THIRTY_DAYS_MS) return null
+    const pastPrice = Number(prices[idx].close_price)
+    if (pastPrice === 0) return null
+    return round2(((latestPrice / pastPrice) - 1) * 100)
+  }
+
+  const ytdDate = new Date(latestDate.getFullYear(), 0, 1)
+  const oneYrDate = new Date(latestDate)
+  oneYrDate.setMonth(oneYrDate.getMonth() - 12)
+  const fiveYrDate = new Date(latestDate)
+  fiveYrDate.setFullYear(fiveYrDate.getFullYear() - 5)
+
+  return [
+    { label: 'YTD', pct: calcReturn(ytdDate) },
+    { label: 'Last 12mo', pct: calcReturn(oneYrDate) },
+    { label: 'Last 5yr', pct: calcReturn(fiveYrDate) },
+  ]
+}
+
+// ============================================================
 // Fetch current settings for simulator
 // ============================================================
 
@@ -241,6 +266,35 @@ export async function getSimulatorSettings(): Promise<Settings> {
 // ============================================================
 // Helpers
 // ============================================================
+
+interface PriceRow {
+  date: string
+  close_price: number
+}
+
+/** Fetch all price rows for a ticker, paginating past PostgREST's 1000-row cap. */
+async function fetchAllPrices(ticker: string): Promise<PriceRow[]> {
+  const PAGE_SIZE = 1000
+  let prices: PriceRow[] = []
+  let offset = 0
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('stock_prices')
+      .select('date, close_price')
+      .eq('ticker', ticker)
+      .order('date', { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1)
+
+    if (error) throw error
+    if (!data || data.length === 0) break
+    prices = prices.concat(data)
+    if (data.length < PAGE_SIZE) break
+    offset += PAGE_SIZE
+  }
+
+  return prices
+}
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100
@@ -270,7 +324,7 @@ function monthsBetween(startDate: string, endDate: string): number {
 }
 
 function findClosestDateIndex(
-  prices: { date: string; close_price: number }[],
+  prices: PriceRow[],
   targetDate: string,
 ): number {
   // Binary search for closest date
