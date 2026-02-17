@@ -124,20 +124,29 @@ export async function getHistoricalStockReturns(
     }
   }
 
-  const tradingDaysNeeded = Math.round(months * 21) // ~21 trading days/month
-  if (prices.length < tradingDaysNeeded) {
-    const availableMonths = Math.floor(prices.length / 21)
+  // Check data sufficiency by actual date range, not row count.
+  // Row count × 21 days/month is an approximation that can be off by 20+ days.
+  // Use a 30-day tolerance (same as the rolling window lookups) so data that's
+  // a few days short of exactly N months still qualifies.
+  const latestDate = prices[prices.length - 1].date
+  const earliestDate = prices[0].date
+  const neededStartDate = subtractMonths(latestDate, months)
+  const earliestMs = new Date(earliestDate).getTime()
+  const neededMs = new Date(neededStartDate).getTime()
+  const shortfallDays = (earliestMs - neededMs) / (24 * 60 * 60 * 1000)
+
+  if (shortfallDays > 30) {
+    const approxMonths = Math.floor(monthsBetween(earliestDate, latestDate))
     return {
       ticker,
       actual: null,
       best: null,
       worst: null,
-      insufficientHistory: `${ticker} has ~${availableMonths} months of data, need ${months}`,
+      insufficientHistory: `${ticker} has ~${approxMonths} months of data, need ${months}`,
     }
   }
 
   const latestPrice = Number(prices[prices.length - 1].close_price)
-  const latestDate = prices[prices.length - 1].date
 
   // Find actual return: price N months ago vs latest
   const targetDate = subtractMonths(latestDate, months)
@@ -150,15 +159,22 @@ export async function getHistoricalStockReturns(
     pct: round2(((latestPrice / pastPrice) - 1) * 100),
   }
 
-  // Scan all rolling windows of N months
+  // Scan all rolling windows of N months (date-based, not row-offset-based).
+  // For each starting row, find the end row that is N months later.
   let bestReturn = -Infinity
   let worstReturn = Infinity
   let bestStart = 0, bestEnd = 0
   let worstStart = 0, worstEnd = 0
 
-  for (let i = 0; i < prices.length - tradingDaysNeeded; i++) {
-    const endIdx = i + tradingDaysNeeded
-    if (endIdx >= prices.length) break
+  for (let i = 0; i < prices.length; i++) {
+    const windowEnd = addMonths(prices[i].date, months)
+    const endIdx = findClosestDateIndex(prices, windowEnd)
+    // Skip if the end date isn't close enough (within 30 days of target)
+    const endDateDiff = Math.abs(
+      new Date(prices[endIdx].date).getTime() - new Date(windowEnd).getTime(),
+    )
+    if (endDateDiff > 30 * 24 * 60 * 60 * 1000) continue
+    if (endIdx <= i) continue
 
     const startP = Number(prices[i].close_price)
     const endP = Number(prices[endIdx].close_price)
@@ -234,6 +250,23 @@ function subtractMonths(dateStr: string, months: number): string {
   const d = new Date(dateStr)
   d.setMonth(d.getMonth() - months)
   return d.toISOString().split('T')[0]
+}
+
+function addMonths(dateStr: string, months: number): string {
+  const d = new Date(dateStr)
+  d.setMonth(d.getMonth() + months)
+  return d.toISOString().split('T')[0]
+}
+
+function monthsBetween(startDate: string, endDate: string): number {
+  const s = new Date(startDate)
+  const e = new Date(endDate)
+  // Whole months + fractional month from days. Use 30.44 (avg days/month) for precision.
+  const wholeMonths = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth())
+  const dayFraction = (e.getDate() - s.getDate()) / 30.44
+  // Floor to avoid rejecting data that's days short of a whole month boundary.
+  // The rolling window already uses a 30-day tolerance for individual lookups.
+  return Math.floor(wholeMonths + dayFraction)
 }
 
 function findClosestDateIndex(
